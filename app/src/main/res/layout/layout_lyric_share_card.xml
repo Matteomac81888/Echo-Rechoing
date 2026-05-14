@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/cardContainer"
+    android:layout_width="1080px"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="80px">
+
+    <!-- Intestazione: Copertina, Titolo e Artista -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <androidx.cardview.widget.CardView
+            android:layout_width="150px"
+            android:layout_height="150px"
+            app:cardCornerRadius="16px"
+            app:cardElevation="0dp">
+
+            <ImageView
+                android:id="@+id/songCover"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="centerCrop" />
+        </androidx.cardview.widget.CardView>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="40px"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/songTitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="#FFFFFF"
+                android:textSize="48px"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/songArtist"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="#DDDDDD"
+                android:textSize="40px" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Testo della canzone -->
+    <TextView
+        android:id="@+id/lyricsText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="120px"
+        android:layout_marginBottom="120px"
+        android:gravity="center"
+        android:textColor="#FFFFFF"
+        android:textSize="80px"
+        android:textStyle="bold" />
+
+    <!-- Logo/Watermark -->
+    <TextView
+        android:id="@+id/logoText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="echo"
+        android:textColor="#FFFFFF"
+        android:textSize="48px"
+        android:textStyle="bold" />
+
+</LinearLayout>
