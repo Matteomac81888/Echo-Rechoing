@@ -25,7 +25,10 @@ import dev.matteomac81888.echo.ui.playlist.delete.DeletePlaylistViewModel
 import dev.matteomac81888.echo.ui.playlist.edit.EditPlaylistViewModel
 import dev.matteomac81888.echo.ui.playlist.save.SaveToPlaylistViewModel
 import dev.matteomac81888.echo.utils.ContextUtils.getSettings
+import dev.brahmkshatriya.echo.common.models.EchoMediaItem
+import dev.brahmkshatriya.echo.common.models.Track
 import org.koin.android.ext.koin.androidApplication
+import org.koin.androidx.viewmodel.dsl.viewModel
 import org.koin.androidx.workmanager.dsl.workerOf
 import org.koin.core.module.dsl.singleOf
 import org.koin.core.module.dsl.viewModelOf
@@ -76,7 +79,22 @@ object DI {
 
         viewModelOf(::CreatePlaylistViewModel)
         viewModelOf(::DeletePlaylistViewModel)
-        viewModelOf(::SaveToPlaylistViewModel)
+
+        // SaveToPlaylistViewModel riceve parametri runtime (extensionId, item, preloadedTracks)
+        // tramite parametersOf nell'UI. Non si può usare viewModelOf perché List<Track> è
+        // soggetto a type erasure e Koin non riesce a risolverlo tramite reflection.
+        // Si usa viewModel { params -> } con accesso posizionale (params[n]) per evitare
+        // il problema della type erasure di List<T>.
+        viewModel { params ->
+            SaveToPlaylistViewModel(
+                extensionId = params[0],
+                item = params[1],
+                preloadedTracks = params[2],
+                app = get(),
+                extensionLoader = get()
+            )
+        }
+
         viewModelOf(::EditPlaylistViewModel)
 
         viewModelOf(::DownloadViewModel)

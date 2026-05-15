@@ -1,7 +1,90 @@
-# Project exclude paths
-/.gradle/
-/app/build/
-/app/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes/
+# ============================================================
+# BUILD OUTPUT
+# ============================================================
 /build/
+/app/build/
 /common/build/
-/common/build/classes/kotlin/android/main/
+
+# ============================================================
+# GRADLE
+# ============================================================
+/.gradle/
+.gradle/
+gradle-app.setting
+!gradle/wrapper/gradle-wrapper.jar
+!gradle/wrapper/gradle-wrapper.properties
+!gradlew
+!gradlew.bat
+
+# ============================================================
+# KOTLIN COMPILER CACHE
+# ============================================================
+.kotlin/
+
+# ============================================================
+# ANDROID STUDIO / IntelliJ IDEA
+# ============================================================
+/.idea/
+*.iml
+*.iws
+*.ipr
+.idea/
+
+# ============================================================
+# LOCAL CONFIGURATION (NON committare mai)
+# ============================================================
+local.properties
+
+# ============================================================
+# KEYSTORE E FILE DI FIRMA (dati sensibili)
+# ============================================================
+*.jks
+*.keystore
+*.p12
+*.pfx
+release-key*
+keystore.properties
+signing.properties
+
+# ============================================================
+# FILE GENERATI DA OS
+# ============================================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# ============================================================
+# FILE DI CRASH / LOG
+# ============================================================
+*.log
+*.hprof
+
+# ============================================================
+# APK / AAB / OUTPUT DI RELEASE
+# ============================================================
+*.apk
+*.aab
+*.aar
+/app/release/
+/app/debug/
+
+# ============================================================
+# COVERAGE E TEST OUTPUT
+# ============================================================
+/app/jacoco/
+*.ec
+
+# ============================================================
+# PROFILI BASELINE (generati automaticamente)
+# ============================================================
+/app/release/baselineProfiles/
+
+# ============================================================
+# VSCODE
+# ============================================================
+.vscode/
