@@ -34,7 +34,7 @@ While keeping the amazing extension-based foundation of the original app, this c
 *   **Search by Artist in Playlists:** You can now filter and search for specific artists directly inside your playlists, making it much easier to navigate large collections.
 *   **Multi-Select Playlist Editing:** Editing your playlists is now faster than ever. You can select multiple songs at once in the edit view and delete them in bulk.
 *   **Fresh Green UI & Logo:** The application has been redesigned with a brand new default Green color scheme and a matching updated app icon.
-*   **Fetch lyrics from metadata and builtin lrclib extension.
+*   **Fetch lyrics:** from metadata and builtin lrclib extension.
 
 
 ### 💬 Join the Fork's Community
