@@ -8,11 +8,15 @@ koinAndroid = "4.1.0"
 media3 = "1.8.0"
 coil = "3.3.0"
 
+jaudiotagger = "3.0.1"
+
 [libraries]
 okhttp = { module = "com.squareup.okhttp3:okhttp", version = "5.1.0" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version = "1.9.0" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version = "1.10.2" }
 kotlin-reflect = { module = "org.jetbrains.kotlin:kotlin-reflect", version.ref = "kotlin" }
+
+jaudiotagger = { module = "net.jthink:jaudiotagger", version.ref = "jaudiotagger" }
 
 androidx-core-google-shortcuts = { module = "androidx.core:core-google-shortcuts", version = "1.1.0" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version = "1.17.0" }

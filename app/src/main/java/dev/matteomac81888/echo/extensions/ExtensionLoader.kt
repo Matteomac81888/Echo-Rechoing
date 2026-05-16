@@ -48,6 +48,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.io.File
+import dev.matteomac81888.echo.extensions.builtin.lyrics.DefaultLyricsExtension
+
 
 @OptIn(UnstableApi::class)
 class ExtensionLoader(
@@ -78,10 +80,13 @@ class ExtensionLoader(
         scope, app.context, fileIgnoreFlow, parser,
         UnifiedExtension.metadata to unified,
         OfflineExtension.metadata to lazy { OfflineExtension(app.context) },
+        DefaultLyricsExtension.metadata to lazy { DefaultLyricsExtension() }, // <--- AGGIUNTA
+
 //        TestExtension.metadata to lazy { TestExtension() },
 //        DownloadExtension.metadata to lazy { DownloadExtension(app.context) }
 //        TrackerTestExtension.metadata to Injectable { TrackerTestExtension() },
     )
+
 
     private val settings = app.settings
     val priorityMap = ExtensionType.entries.associateWith {

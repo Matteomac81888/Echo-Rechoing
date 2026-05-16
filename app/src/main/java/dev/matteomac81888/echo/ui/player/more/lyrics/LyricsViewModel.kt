@@ -39,6 +39,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.transformLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import dev.matteomac81888.echo.extensions.builtin.lyrics.DefaultLyricsExtension
 
 class LyricsViewModel(
     private val app: App,
@@ -70,6 +71,8 @@ class LyricsViewModel(
         currentSelectionFlow.value = media?.let {
             val id = app.context.getFromCache<String>(media, "lyrics_ext")
                 ?: app.settings.getString(LAST_LYRICS_KEY, null)
+                ?: DefaultLyricsExtension.metadata.id // <--- USA IL NUOVO DEFAULT QUI
+
             extensions.find { it.id == id } ?: extensions.firstOrNull()
         }
         refreshFlow.emit(Unit)
