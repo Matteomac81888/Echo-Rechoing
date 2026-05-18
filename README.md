@@ -35,6 +35,7 @@ While keeping the amazing extension-based foundation of the original app, this c
 *   **Multi-Select Playlist Editing:** Editing your playlists is now faster than ever. You can select multiple songs at once in the edit view and delete them in bulk.
 *   **Fresh Green UI & Logo:** The application has been redesigned with a brand new default Green color scheme and a matching updated app icon.
 *   **Fetch lyrics:** from metadata and builtin lrclib extension.
+*   **Karaoke mode:** Syncs songs word by word, you can now also choose between unsynced, synced and karaoke mode (only for supported songs)
 
 
 ### 💬 Join the Fork's Community
