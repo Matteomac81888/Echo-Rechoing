@@ -82,6 +82,7 @@ class ExtensionLoader(
         OfflineExtension.metadata to lazy { OfflineExtension(app.context) },
         DefaultLyricsExtension.metadata to lazy { DefaultLyricsExtension() }, // <--- AGGIUNTA
 
+
 //        TestExtension.metadata to lazy { TestExtension() },
 //        DownloadExtension.metadata to lazy { DownloadExtension(app.context) }
 //        TrackerTestExtension.metadata to Injectable { TrackerTestExtension() },

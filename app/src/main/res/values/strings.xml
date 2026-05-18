@@ -281,6 +281,9 @@
     <string name="share">Share</string>
     <string name="share_lyrics">Share Lyrics</string>
     <string name="lyrics_copied">Lyrics copied to clipboard</string>
+    <string name="lyrics_mode_unsynced">Unsynced</string>
+    <string name="lyrics_mode_synced">Synced</string>
+    <string name="lyrics_mode_karaoke">Karaoke</string>
     <string name="search_queue">Search queue…</string>
     <string name="remove_selected">Remove selected</string>
     <string name="move_to_next">Move to next</string>

@@ -4,19 +4,31 @@
     <shared>
       <config />
     </shared>
+    <layouts>
+      <layout url="file://$PROJECT_DIR$/app/src/main/res/layout/fragment_player_lyrics.xml">
+        <config>
+          <theme>@style/Default</theme>
+        </config>
+      </layout>
+      <layout url="file://$PROJECT_DIR$/app/src/main/res/layout/item_lyric_karaoke.xml">
+        <config>
+          <theme>@style/Default</theme>
+        </config>
+      </layout>
+    </layouts>
   </component>
   <component name="AutoImportSettings">
     <option name="autoReloadType" value="NONE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f597912d-2f2c-4ca3-9949-3fc3740091db" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/artifacts/common.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/artifacts/common.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/artifacts/common_jvm.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/artifacts/common_jvm.xml" afterDir="false" />
+    <list default="true" id="f597912d-2f2c-4ca3-9949-3fc3740091db" name="Changes" comment="added sync song from metaData and builtin lrcLib extension">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/build.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/app/build.gradle.kts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/src/main/java/dev/matteomac81888/echo/extensions/ExtensionLoader.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/dev/matteomac81888/echo/extensions/ExtensionLoader.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/dev/matteomac81888/echo/ui/player/more/lyrics/LyricAdapter.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/dev/matteomac81888/echo/ui/player/more/lyrics/LyricAdapter.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/dev/matteomac81888/echo/ui/player/more/lyrics/LyricsFragment.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/dev/matteomac81888/echo/ui/player/more/lyrics/LyricsFragment.kt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/src/main/java/dev/matteomac81888/echo/ui/player/more/lyrics/LyricsViewModel.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/dev/matteomac81888/echo/ui/player/more/lyrics/LyricsViewModel.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/gradle/libs.versions.toml" beforeDir="false" afterPath="$PROJECT_DIR$/gradle/libs.versions.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/layout/fragment_player_lyrics.xml" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/res/layout/fragment_player_lyrics.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/values/strings.xml" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/res/values/strings.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -52,11 +64,19 @@
   <component name="FileTemplateManagerImpl">
     <option name="RECENT_TEMPLATES">
       <list>
+        <option value="layoutResourceFile" />
         <option value="Kotlin Class" />
       </list>
     </option>
   </component>
+  <component name="GenerateSignedApkSettings">
+    <option name="KEY_STORE_PATH" value="C:\Users\alexm\OneDrive\Desktop\chiave_echo_rechoed.jks" />
+    <option name="KEY_ALIAS" value="key0" />
+    <option name="REMEMBER_PASSWORDS" value="true" />
+    <option name="BUILD_TARGET_KEY" value="apk" />
+  </component>
   <component name="Git.Settings">
+    <option name="PUSH_AUTO_UPDATE" value="true" />
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
   <component name="GitHubPullRequestSearchHistory">{
@@ -80,24 +100,34 @@
   &quot;associatedIndex&quot;: 6
 }</component>
   <component name="ProjectId" id="3DjEhE1mgVPbGD2cwf2HvPN8EDg" />
+  <component name="ProjectLevelVcsManager">
+    <ConfirmationsSetting value="1" id="Add" />
+  </component>
   <component name="ProjectViewState">
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "Android App.app.executor": "Debug",
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.cidr.known.project.marker": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "RunOnceActivity.readMode.enableVisualFormatting": "true",
-    "cf.first.check.clang-format": "false",
-    "cidr.known.project.marker": "true",
-    "com.google.services.firebase.aqiPopupShown": "true",
-    "git-widget-placeholder": "master",
-    "kotlin-language-version-configured": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Android App.app.executor&quot;: &quot;Run&quot;,
+    &quot;ApkExportedModule&quot;: &quot;Echo.app&quot;,
+    &quot;ExportApk.ApkPathForEcho.app&quot;: &quot;C:\\Users\\alexm\\Downloads\\echo-nightly-rechoing-modified\\echo-modified\\app&quot;,
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.cidr.known.project.marker&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.readMode.enableVisualFormatting&quot;: &quot;true&quot;,
+    &quot;cf.first.check.clang-format&quot;: &quot;false&quot;,
+    &quot;cidr.known.project.marker&quot;: &quot;true&quot;,
+    &quot;com.google.services.firebase.aqiPopupShown&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
+    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;
+  },
+  &quot;keyToStringList&quot;: {
+    &quot;ExportApk.BuildVariants&quot;: [
+      &quot;release&quot;
+    ]
   }
-}]]></component>
+}</component>
   <component name="RunManager">
     <configuration name="app" type="AndroidRunConfigurationType" factoryName="Android App" activateToolWindowBeforeRun="false">
       <module name="Echo.app" />
@@ -180,6 +210,40 @@
       <option name="presentableId" value="Default" />
       <updated>1778787196678</updated>
     </task>
+    <task id="LOCAL-00001" summary="added sync song from metaData and builtin lrcLib extension">
+      <option name="closed" value="true" />
+      <created>1778934058124</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1778934058124</updated>
+    </task>
+    <option name="localTasksCounter" value="2" />
     <servers />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="added sync song from metaData and builtin lrcLib extension" />
+    <option name="LAST_COMMIT_MESSAGE" value="added sync song from metaData and builtin lrcLib extension" />
+  </component>
+  <component name="play_dynamic_filters_status">
+    <option name="appIdToCheckInfo">
+      <map>
+        <entry key="dev.matteomac81888.echo">
+          <value>
+            <CheckInfo lastCheckTimestamp="1779043268164" />
+          </value>
+        </entry>
+        <entry key="dev.matteomac81888.echo.nightly">
+          <value>
+            <CheckInfo lastCheckTimestamp="1779043268165" />
+          </value>
+        </entry>
+        <entry key="dev.matteomac81888.echo.test">
+          <value>
+            <CheckInfo lastCheckTimestamp="1779043268165" />
+          </value>
+        </entry>
+      </map>
+    </option>
   </component>
 </project>

@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.coordinatorlayout.widget.CoordinatorLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
@@ -48,6 +49,42 @@
             app:navigationIcon="@drawable/ic_search_outline"
             tools:ignore="RtlSymmetry" />
 
+        <!-- ── Selettore modalità testi (Unsynced / Synced / Karaoke) ───────── -->
+        <com.google.android.material.chip.ChipGroup
+            android:id="@+id/chipGroupLyricsMode"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginBottom="6dp"
+            app:singleSelection="true"
+            app:selectionRequired="true"
+            app:layout_scrollFlags="scroll|enterAlways">
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/chipUnsynced"
+                style="@style/Widget.Material3.Chip.Filter"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/lyrics_mode_unsynced" />
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/chipSynced"
+                style="@style/Widget.Material3.Chip.Filter"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/lyrics_mode_synced"
+                android:checked="true" />
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/chipKaraoke"
+                style="@style/Widget.Material3.Chip.Filter"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/lyrics_mode_karaoke"
+                android:enabled="false" />
+
+        </com.google.android.material.chip.ChipGroup>
+
     </com.google.android.material.appbar.AppBarLayout>
 
     <TextView
@@ -89,4 +126,5 @@
             app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
 
     </com.google.android.material.search.SearchView>
+
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

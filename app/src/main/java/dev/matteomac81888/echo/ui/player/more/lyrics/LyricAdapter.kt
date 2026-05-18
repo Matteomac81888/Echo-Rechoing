@@ -28,6 +28,14 @@ class LyricAdapter(
             oldItem == newItem
     }
 
+    // ── Modalità corrente: influenza il comportamento dell'alpha ──────────────
+    var mode: LyricsMode = LyricsMode.SYNCED
+        set(value) {
+            field = value
+            // Ridisegna tutti i ViewHolder visibili
+            onEachViewHolder { updateCurrent() }
+        }
+
     inner class ViewHolder(val binding: ItemLyricBinding) : ScrollAnimViewHolder(binding.root) {
         init {
             binding.root.setOnClickListener {
@@ -49,9 +57,16 @@ class LyricAdapter(
 
     private var currentPos = -1
     private fun ViewHolder.updateCurrent() {
-        val currentTime = getItemOrNull(currentPos)?.startTime ?: 0
-        val time = getItemOrNull(bindingAdapterPosition)?.startTime ?: 0
-        binding.root.alpha = if (currentTime >= time) 1f else 0.5f
+        binding.root.alpha = when (mode) {
+            // UNSYNCED: tutto visibile al massimo, nessun highlight
+            LyricsMode.UNSYNCED -> 1f
+            // SYNCED / KARAOKE (fallback adapter): comportamento originale
+            else -> {
+                val currentTime = getItemOrNull(currentPos)?.startTime ?: 0
+                val time = getItemOrNull(bindingAdapterPosition)?.startTime ?: 0
+                if (currentTime >= time) 1f else 0.5f
+            }
+        }
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -80,6 +95,7 @@ class LyricAdapter(
         this.currentPos = currentPos
         onEachViewHolder { updateCurrent() }
     }
+
     class Loading(
         parent: ViewGroup,
         val binding: ItemLoadingBinding = ItemLoadingBinding.inflate(
