@@ -1,3 +1,4 @@
+
 package dev.matteomac81888.echo.ui.player.more.lyrics
 
 import androidx.core.content.edit
@@ -50,10 +51,8 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import kotlinx.serialization.json.longOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.net.URLEncoder
@@ -103,6 +102,8 @@ class LyricsViewModel(
      * -----------------------------------------------------------------------*/
 
     private fun JsonElement.safeObj() = if (this is kotlinx.serialization.json.JsonObject) this else null
+    private fun JsonElement.safeArray() = if (this is kotlinx.serialization.json.JsonArray) this else null
+
     private val JsonElement.asString: String?
         get() = try {
             if (this is kotlinx.serialization.json.JsonNull) null else this.jsonPrimitive.content
@@ -256,9 +257,9 @@ class LyricsViewModel(
 
                 val searchJson = searchResp.body?.string()?.toData<JsonElement>()?.getOrNull() ?: continue
 
-                val results: JsonArray? = searchJson.safeObj()?.get("data")?.jsonArray
-                    ?: (searchJson as? JsonArray)
-                    ?: searchJson.safeObj()?.get("result")?.jsonArray
+                val results: JsonArray? = searchJson.safeObj()?.get("data")?.safeArray()
+                    ?: searchJson.safeArray()
+                    ?: searchJson.safeObj()?.get("result")?.safeArray()
 
                 val songId = findBestMatch(results, track) ?: continue
 
@@ -287,7 +288,6 @@ class LyricsViewModel(
 
         val cleanTitle = track.title.clean().lowercase()
         val cleanArtist = track.artists.firstOrNull()?.name?.clean()?.lowercase() ?: ""
-        val trackDurationSec = track.duration?.let { it / 1000 } ?: 0L
 
         // Prima cerca corrispondenza esatta titolo + artista
         for (item in results) {
@@ -318,16 +318,16 @@ class LyricsViewModel(
     /** Parser formato KPoe v2: { lines: [ { words: [ {startTime, endTime, word} ] } ] } */
     private fun parseKpoeV2(json: JsonElement): Lyrics.WordByWord? {
         val root = json.safeObj() ?: return null
-        val linesArray = root["lines"]?.jsonArray
-            ?: root["data"]?.safeObj()?.get("lines")?.jsonArray
-            ?: root["content"]?.jsonArray
+        val linesArray = root["lines"]?.safeArray()
+            ?: root["data"]?.safeObj()?.get("lines")?.safeArray()
+            ?: root["content"]?.safeArray()
             ?: return null
 
         val lines = mutableListOf<List<Lyrics.Item>>()
         for (lineEl in linesArray) {
             val lineObj = lineEl.safeObj() ?: continue
-            val wordsArray = lineObj["words"]?.jsonArray
-                ?: lineObj["syllables"]?.jsonArray
+            val wordsArray = lineObj["words"]?.safeArray()
+                ?: lineObj["syllables"]?.safeArray()
                 ?: continue
 
             val words = mutableListOf<Lyrics.Item>()
@@ -425,7 +425,6 @@ class LyricsViewModel(
                     val synced = root["syncedLyrics"]?.asString
                     if (!synced.isNullOrBlank()) {
                         parseEnhancedLrc(synced)?.let { return it }
-                        // Se non ha word-sync, fallisce silenziosamente (non è WBW)
                     }
                 }
             }
@@ -440,7 +439,7 @@ class LyricsViewModel(
 
             if (!searchResp.isSuccessful) return null
             val searchJson = searchResp.body?.string()?.toData<JsonElement>()?.getOrNull() ?: return null
-            val results = searchJson as? JsonArray ?: return null
+            val results = searchJson.safeArray() ?: return null
 
             val cleanTitle = track.title.clean().lowercase()
             val cleanArtist = track.artists.firstOrNull()?.name?.clean()?.lowercase() ?: ""
@@ -552,7 +551,7 @@ class LyricsViewModel(
     }
 
     private suspend fun fetchAppleMusicLyrics(track: Track): Lyrics.WordByWord? {
-        return try {
+        try {
             val token = getAppleToken() ?: return null
             val term = URLEncoder.encode(
                 "${track.title.clean()} ${track.artists.firstOrNull()?.name?.clean() ?: ""}",
@@ -574,14 +573,13 @@ class LyricsViewModel(
 
             val searchJson = searchResp.body?.string()?.toData<JsonElement>()?.getOrNull() ?: return null
 
-            val songs = searchJson.jsonObject["results"]?.jsonObject
-                ?.get("songs")?.jsonObject
-                ?.get("data")?.jsonArray ?: return null
+            val songs = searchJson.safeObj()?.get("results")?.safeObj()
+                ?.get("songs")?.safeObj()
+                ?.get("data")?.safeArray() ?: return null
 
             val cleanTitle = track.title.clean().lowercase()
             var songId: String? = null
 
-            // Prima scelta: match titolo + hasLyrics
             for (song in songs) {
                 val attrs = song.safeObj()?.get("attributes")?.safeObj() ?: continue
                 val songTitle = attrs["name"]?.asString?.clean()?.lowercase() ?: ""
@@ -591,13 +589,11 @@ class LyricsViewModel(
                     break
                 }
             }
-            // Seconda scelta: qualsiasi con hasLyrics
             if (songId == null) {
                 songId = songs.firstOrNull { song ->
                     song.safeObj()?.get("attributes")?.safeObj()?.get("hasLyrics")?.asString == "true"
                 }?.safeObj()?.get("id")?.asString
             }
-            // Terza scelta: primo risultato
             if (songId == null) {
                 songId = songs.firstOrNull()?.safeObj()?.get("id")?.asString
             }
@@ -615,14 +611,14 @@ class LyricsViewModel(
 
             val lyricsJson = lyricsResp.body?.string()?.toData<JsonElement>()?.getOrNull() ?: return null
 
-            val ttml = lyricsJson.jsonObject["data"]?.jsonArray?.firstOrNull()?.safeObj()
+            val ttml = lyricsJson.safeObj()?.get("data")?.safeArray()?.firstOrNull()?.safeObj()
                 ?.get("attributes")?.safeObj()
                 ?.get("ttml")?.asString ?: return null
 
-            parseAppleTtml(ttml)
+            return parseAppleTtml(ttml)
         } catch (e: Exception) {
             appleToken = null
-            null
+            return null
         }
     }
 
@@ -720,7 +716,7 @@ class LyricsViewModel(
                 val obj = el.safeObj() ?: continue
                 val tsMs = ((obj["ts"]?.asString?.toDoubleOrNull() ?: continue) * 1000).toLong()
                 val teMs = ((obj["te"]?.asString?.toDoubleOrNull() ?: (tsMs / 1000.0 + 4.0)) * 1000).toLong()
-                val chars = obj["l"]?.jsonArray ?: continue
+                val chars = obj["l"]?.safeArray() ?: continue
 
                 val words = mutableListOf<Lyrics.Item>()
 
@@ -765,7 +761,6 @@ class LyricsViewModel(
                 "UTF-8"
             )
 
-            // Step 1: cerca il brano
             val searchUrl = "https://music.163.com/api/search/get/web?csrf_token=&s=$keyword&type=1&offset=0&total=true&limit=5"
             val searchReq = Request.Builder()
                 .url(searchUrl)
@@ -778,7 +773,7 @@ class LyricsViewModel(
 
             val searchJson = searchResp.body?.string()?.toData<JsonElement>()?.getOrNull() ?: return null
             val songs = searchJson.safeObj()?.get("result")?.safeObj()
-                ?.get("songs")?.jsonArray ?: return null
+                ?.get("songs")?.safeArray() ?: return null
 
             val cleanTitle = track.title.clean().lowercase()
             val cleanArtist = track.artists.firstOrNull()?.name?.clean()?.lowercase() ?: ""
@@ -787,7 +782,7 @@ class LyricsViewModel(
             for (song in songs) {
                 val obj = song.safeObj() ?: continue
                 val songName = (obj["name"]?.asString ?: "").clean().lowercase()
-                val artistName = obj["artists"]?.jsonArray?.firstOrNull()?.safeObj()
+                val artistName = obj["artists"]?.safeArray()?.firstOrNull()?.safeObj()
                     ?.get("name")?.asString?.clean()?.lowercase() ?: ""
 
                 if (songName.contains(cleanTitle) || cleanTitle.contains(songName)) {
@@ -802,7 +797,6 @@ class LyricsViewModel(
             }
             if (songId == null) return null
 
-            // Step 2: recupera YRC
             val lyricsUrl = "https://music.163.com/api/song/lyric?os=pc&id=$songId&lv=-1&kv=-1&tv=-1&yv=1"
             val lyricsReq = Request.Builder()
                 .url(lyricsUrl)
@@ -815,13 +809,12 @@ class LyricsViewModel(
 
             val lyricsJson = lyricsResp.body?.string()?.toData<JsonElement>()?.getOrNull() ?: return null
 
-            // Prova YRC prima (word-by-word), poi kLyric (line-synced come fallback)
             val yrc = lyricsJson.safeObj()?.get("yrc")?.safeObj()?.get("lyric")?.asString
             if (!yrc.isNullOrBlank()) {
                 parseYrc(yrc)?.let { return it }
             }
 
-            null // Non restituire kLyric: non è WBW
+            null
         } catch (e: Exception) { null }
     }
 
@@ -881,25 +874,18 @@ class LyricsViewModel(
     fun fetchRichSyncIfNeeded(lyrics: Lyrics.Lyric?, track: Track?) {
         if (track == null) return
 
-        // Cache istantanea (previene bug replay/seek)
         richSyncCache[track.id]?.let {
             richSyncFlow.value = it
             applyDefaultModeForLyrics(it)
             return
         }
 
-        // BUG FIX: evita fetch multipli per lo stesso brano, ma controlla anche che
-        // la traccia corrente non sia cambiata (richSyncJob potrebbe essere attivo
-        // per una traccia diversa se l'utente ha saltato velocemente)
         if (currentRichSyncTrackId == track.id && richSyncJob?.isActive == true) return
 
         richSyncJob?.cancel()
-        // BUG FIX: reset immediato del flow per evitare che un valore stantio
-        // della traccia precedente rimanga visibile durante il caricamento
         richSyncFlow.value = null
         currentRichSyncTrackId = track.id
 
-        // Se i testi sono già WBW, usali direttamente
         if (lyrics is Lyrics.WordByWord) {
             richSyncFlow.value = lyrics
             richSyncCache[track.id] = lyrics
@@ -908,15 +894,7 @@ class LyricsViewModel(
         }
 
         richSyncJob = viewModelScope.launch(Dispatchers.IO) {
-            // Fetch parallelo di tutte le fonti con timeout individuale.
-            // Ordine di priorità (basato sui dati reali di YouLy+ e community):
-            // 1. LyricsPlus/KPoe   - miglior copertura WBW, multi-source aggregato
-            // 2. Spicy Lyrics      - Netease YRC via proxy europeo stabile
-            // 3. NetEase YRC       - YRC nativo, ottima copertura K-pop/pop internazionale
-            // 4. Apple Music       - TTML word-by-word ufficiale (qualità alta, copertura occidentale)
-            // 5. Musixmatch        - richsync word-by-word (buona copertura indie/alternativa)
-            // 6. LRCLIB            - Enhanced LRC open-source (fallback qualità medio-alta)
-            val trackSnapshot = track // cattura locale per evitare race condition
+            val trackSnapshot = track
             val deferreds = listOf(
                 async { withTimeoutOrNull(9000L) { fetchKpoeLyricsPlus(trackSnapshot) } },
                 async { withTimeoutOrNull(7000L) { fetchSpicyLyrics(trackSnapshot) } },
@@ -930,8 +908,6 @@ class LyricsViewModel(
             val bestLyrics = results.maxByOrNull { scoreLyrics(it) }
             val bestScore = bestLyrics?.let { scoreLyrics(it) } ?: 0
 
-            // BUG FIX: verifica che la traccia non sia cambiata durante il fetch
-            // prima di aggiornare i flow (previene "flicker" di testi sbagliati)
             if (currentRichSyncTrackId != trackSnapshot.id) return@launch
 
             withContext(Dispatchers.Main) {
@@ -940,7 +916,6 @@ class LyricsViewModel(
                     richSyncFlow.value = bestLyrics
                     applyDefaultModeForLyrics(bestLyrics)
                 } else {
-                    // Nessuna fonte ha trovato WBW: se siamo in KARAOKE, fallback a SYNCED
                     if (lyricsModeFlow.value == LyricsMode.KARAOKE) {
                         applyDefaultModeForLyrics(lyrics)
                     }
@@ -979,7 +954,7 @@ class LyricsViewModel(
         lyrics is Lyrics.WordByWord || richSyncFlow.value != null
 
     /* =========================================================================
-     * FLOW INFRASTRUTTURA (invariato)
+     * FLOW INFRASTRUTTURA
      * =======================================================================*/
 
     private val mediaFlow = playerState.current.map { current ->
