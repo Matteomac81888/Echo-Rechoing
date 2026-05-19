@@ -122,16 +122,11 @@ class LyricsFragment : Fragment() {
 
     private var currentKaraokeLineIndex = -1
 
-    // Anticipa lo scroll verticale di 300ms: quando la voce attacca la riga
-    // è già centrata a schermo. Il rendering parola-per-parola avviene invece
-    // nel Choreographer dell'adapter, leggendo currentPosition direttamente.
     private val KARAOKE_SCROLL_ANTICIPATION_MS = 300L
 
     private fun updateKaraokeMode(current: Long) {
         val wbw = currentWordByWord ?: return
 
-        // Scroll verticale predittivo: usiamo il tempo anticipato solo per decidere
-        // quale riga centrare. Il rendering delle parole è completamente indipendente.
         val anticipatedTime = current + KARAOKE_SCROLL_ANTICIPATION_MS
         val lineIndex = wbw.list.indexOfLast { line ->
             line.firstOrNull()?.startTime?.let { it <= anticipatedTime } == true
@@ -145,6 +140,25 @@ class LyricsFragment : Fragment() {
             smoothScroller.targetPosition = lineIndex
             layoutManager.startSmoothScroll(smoothScroller)
         }
+    }
+
+    // Metodo centralizzato che incrocia in modo sicuro le informazioni
+    private fun updateLyricsDataLists() {
+        // Creiamo una val locale per permettere lo smart cast in sicurezza dal compilatore
+        val lyrics = currentLyrics
+
+        currentFlatList = when (lyrics) {
+            is Lyrics.Simple     -> listOf(Lyrics.Item(lyrics.text, 0, 0))
+            is Lyrics.Timed      -> lyrics.list
+            is Lyrics.WordByWord -> lyrics.list.flatten()
+            null                 -> emptyList()
+        }
+
+        // Il Flow della modalità Karaoke (richSyncFlow) comanda sempre, in sua
+        // assenza passiamo alle WordByWord native se presenti. NESSUN NULL DISTRUTTIVO!
+        val wbw = viewModel.richSyncFlow.value ?: (lyrics as? Lyrics.WordByWord)
+        currentWordByWord = wbw
+        currentWordByWordList = wbw?.list ?: emptyList()
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -239,6 +253,7 @@ class LyricsFragment : Fragment() {
         setupModeChips()
 
         binding.lyricsRecyclerView.itemAnimator = null
+
         observe(viewModel.lyricsState) { state ->
             binding.noLyrics.isVisible = state == LyricsViewModel.State.Empty
             lyricsErrorAdapter.loadState = when (state) {
@@ -256,17 +271,29 @@ class LyricsFragment : Fragment() {
             currentLyricsPos = -1
             currentKaraokeLineIndex = -1
             currentLyrics = lyricsItem?.lyrics
-            currentWordByWord = null
 
-            viewModel.applyDefaultModeForLyrics(currentLyrics)
-            prepareLyricsData(currentLyrics)
+            val track = playerVM.playerState.current.value?.mediaItem?.track
+
+            // Aggiorna/pesca dalla cache PRIMA di incrociare le liste
+            viewModel.fetchRichSyncIfNeeded(currentLyrics, track)
+
+            // Assegna coerentemente i dati (risolve il bug del reset visivo)
+            updateLyricsDataLists()
+
+            binding.chipKaraoke.isEnabled = viewModel.canUseKaraoke(currentLyrics, track?.id)
+            viewModel.applyDefaultModeForLyrics(currentWordByWord ?: currentLyrics)
+
+            applyMode(viewModel.lyricsModeFlow.value)
         }
 
         observe(viewModel.richSyncFlow) { wbw ->
-            binding.chipKaraoke.isEnabled = viewModel.canUseKaraoke(currentLyrics)
+            val trackId = playerVM.playerState.current.value?.mediaItem?.track?.id
+            binding.chipKaraoke.isEnabled = viewModel.canUseKaraoke(currentLyrics, trackId)
+
+            // Aggiorna coerentemente le variabili d'appoggio quando questo flow emette
+            updateLyricsDataLists()
+
             if (wbw != null) {
-                currentWordByWord = wbw
-                currentWordByWordList = wbw.list
                 if (viewModel.lyricsModeFlow.value == LyricsMode.SYNCED) {
                     viewModel.setMode(LyricsMode.KARAOKE)
                 } else if (viewModel.lyricsModeFlow.value == LyricsMode.KARAOKE) {
@@ -279,16 +306,8 @@ class LyricsFragment : Fragment() {
             }
         }
 
-        // progress (100ms) usato solo per lo scroll verticale in modalità KARAOKE
-        // e per il highlight di riga in modalità SYNCED.
-        // Il rendering parola-per-parola in KARAOKE avviene nel Choreographer
-        // dell'adapter, che legge currentPosition direttamente dal MediaController.
         observe(playerVM.progress) { updateProgress(it.first) }
 
-        // Passa il MediaController direttamente all'adapter karaoke.
-        // In questo modo il tempo viene letto a 60fps da currentPosition nativo,
-        // identico per tutte le estensioni (non dipende da come ogni estensione
-        // emette gli aggiornamenti di progresso).
         observe(playerVM.browser) { controller ->
             karaokeAdapter.mediaController = controller
         }
@@ -297,28 +316,6 @@ class LyricsFragment : Fragment() {
             applyMode(mode)
             syncChipSelection(mode)
         }
-    }
-
-    private fun prepareLyricsData(lyrics: Lyrics.Lyric?) {
-        currentFlatList = when (lyrics) {
-            is Lyrics.Simple     -> listOf(Lyrics.Item(lyrics.text, 0, 0))
-            is Lyrics.Timed      -> lyrics.list
-            is Lyrics.WordByWord -> lyrics.list.flatten()
-            null                 -> emptyList()
-        }
-
-        binding.chipKaraoke.isEnabled = viewModel.canUseKaraoke(lyrics)
-
-        currentWordByWord = when (lyrics) {
-            is Lyrics.WordByWord -> lyrics
-            else                 -> null
-        }
-        currentWordByWordList = currentWordByWord?.list ?: emptyList()
-
-        val track = playerVM.playerState.current.value?.mediaItem?.track
-        viewModel.fetchRichSyncIfNeeded(lyrics, track)
-
-        applyMode(viewModel.lyricsModeFlow.value)
     }
 
     private fun applyMode(mode: LyricsMode) {
@@ -354,6 +351,7 @@ class LyricsFragment : Fragment() {
     }
 
     private fun shareLyrics() {
+        // Salviamo la reference localmente per sicurezza anche qui
         val lyrics = currentLyrics ?: return
         val track = playerVM.playerState.current.value?.mediaItem?.track ?: return
 
@@ -387,7 +385,6 @@ class LyricsFragment : Fragment() {
             return midPoint - targetMidPoint
         }
         override fun getVerticalSnapPreference() = SNAP_TO_START
-        // 400ms: abbastanza fluido, arriva a destinazione prima che la voce parta
         override fun calculateTimeForDeceleration(dx: Int) = 400
     }
 
