@@ -1,3 +1,4 @@
+
 package dev.matteomac81888.echo.playback.listener
 
 import android.content.Context
@@ -108,25 +109,35 @@ class PlayerEventListener(
     override fun onPlayerError(error: PlaybackException) {
         val cause = error.cause ?: error
         val mediaItem = player.currentMediaItem
-        scope.launch { throwableFlow.emit(PlayerException(mediaItem, cause)) }
 
         val old = last
         last = cause.rootCause::class
         if (old != null && old == last) currentRetries++
         else currentRetries = 0
 
-        if (mediaItem == null) return
+        if (mediaItem == null) {
+            scope.launch { throwableFlow.emit(PlayerException(mediaItem, cause)) }
+            return
+        }
         val index = player.currentMediaItemIndex
+        val position = player.currentPosition
         val retries = mediaItem.retries
 
-        if (currentRetries >= maxRetries) return
+        if (currentRetries >= maxRetries) {
+            scope.launch { throwableFlow.emit(PlayerException(mediaItem, cause)) }
+            return
+        }
+
         if (retries >= maxSingleItemRetries) {
+            scope.launch { throwableFlow.emit(PlayerException(mediaItem, cause)) }
             val hasMore = index < player.mediaItemCount - 1
             if (!hasMore) return
             player.seekToNextMediaItem()
         } else {
+            // Effettua un retry silenzioso salvando la posizione attuale (senza lanciare errori in UI)
             val newItem = MediaItemUtils.withRetry(mediaItem)
             player.replaceMediaItem(index, newItem)
+            player.seekTo(index, position)
         }
         player.prepare()
         player.play()

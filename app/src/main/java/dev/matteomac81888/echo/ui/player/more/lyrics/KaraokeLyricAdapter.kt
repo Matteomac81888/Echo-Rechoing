@@ -1,3 +1,4 @@
+
 package dev.matteomac81888.echo.ui.player.more.lyrics
 
 import android.animation.ValueAnimator
@@ -31,21 +32,9 @@ class KaraokeLyricAdapter(
 
     private var recyclerView: RecyclerView? = null
 
-    // Fonte di verità per il tempo: viene settato da LyricsFragment non appena
-    // il browser (MediaController) è disponibile tramite playerVM.browser.
     var mediaController: MediaController? = null
-
-    // Offset visivo: piccolo cushion per codec ad alta latenza (Bluetooth).
-    // Spicy-lyrics legge currentPosition puro; noi aggiungiamo 80ms di margine.
-    private val VISUAL_OFFSET_MS = 80L
-
-    // Pre-roll: la prima parola di ogni riga si "accende" questo tempo prima del suo startTime.
-    private val PRE_ROLL_MS = 150L
-
-    // Lerp factor per smussare il progress frame per frame (0.15 = rapido, senza jitter)
+    private val VISUAL_OFFSET_MS = 0L
     private val LERP_FACTOR = 0.15f
-
-    // Progress smoothato per ogni parola (key = position * 1000 + wordIndex)
     private val smoothedProgress = HashMap<Int, Float>()
 
     object DiffCallback : DiffUtil.ItemCallback<List<Lyrics.Item>>() {
@@ -54,10 +43,6 @@ class KaraokeLyricAdapter(
         override fun areContentsTheSame(o: List<Lyrics.Item>, n: List<Lyrics.Item>) = o == n
     }
 
-    // ─── Choreographer Frame Loop ─────────────────────────────────────────────
-    // Leggiamo currentPosition direttamente dal MediaController ogni frame (60fps).
-    // Questo elimina il lag da polling a 500ms e funziona identicamente per tutte
-    // le estensioni, perché il tempo viene sempre dal player nativo Media3.
     private val frameCallback = object : Choreographer.FrameCallback {
         override fun doFrame(frameTimeNanos: Long) {
             val rv = recyclerView
@@ -73,7 +58,6 @@ class KaraokeLyricAdapter(
         }
     }
 
-    // ─── ViewHolder ───────────────────────────────────────────────────────────
     inner class ViewHolder(val binding: ItemLyricKaraokeBinding) :
         RecyclerView.ViewHolder(binding.root) {
         var boundLineKey: Long = Long.MIN_VALUE
@@ -81,15 +65,21 @@ class KaraokeLyricAdapter(
         var lastActiveWordIndex: Int = -1
 
         init {
+            binding.wordsScrollView.setOnClickListener {
+                val pos = bindingAdapterPosition
+                if (pos != RecyclerView.NO_POSITION) {
+                    getItem(pos)?.firstOrNull()?.let { onLineSelected(it) }
+                }
+            }
             binding.root.setOnClickListener {
                 val pos = bindingAdapterPosition
-                if (pos == RecyclerView.NO_POSITION) return@setOnClickListener
-                onLineSelected(getItem(pos)?.firstOrNull() ?: return@setOnClickListener)
+                if (pos != RecyclerView.NO_POSITION) {
+                    getItem(pos)?.firstOrNull()?.let { onLineSelected(it) }
+                }
             }
         }
     }
 
-    // ─── Lifecycle ────────────────────────────────────────────────────────────
     override fun onAttachedToRecyclerView(rv: RecyclerView) {
         super.onAttachedToRecyclerView(rv)
         recyclerView = rv
@@ -122,16 +112,33 @@ class KaraokeLyricAdapter(
         applyLineState(holder, position, syncTime)
     }
 
-    // ─── View Building ────────────────────────────────────────────────────────
     private fun buildWordViews(holder: ViewHolder, line: List<Lyrics.Item>) {
         val container = holder.binding.wordsContainer
-        container.removeAllViews()
         val ctx = holder.itemView.context
+
+        container.removeAllViews()
+
         val isBlank = line.isEmpty() || (line.size == 1 && line[0].text.isBlank())
-        if (isBlank) { container.addView(makeWordView(ctx, "♪")); return }
+        if (isBlank) {
+            val tv = makeWordView(ctx, "♪")
+            tv.setOnClickListener {
+                val pos = holder.bindingAdapterPosition
+                if (pos != RecyclerView.NO_POSITION) getItem(pos)?.firstOrNull()?.let { onLineSelected(it) }
+            }
+            container.addView(tv)
+            return
+        }
+
         line.forEach { word ->
-            val text = word.text.trim().ifEmpty { return@forEach }
-            container.addView(makeWordView(ctx, text))
+            val text = word.text.trim()
+            if (text.isNotEmpty()) {
+                val tv = makeWordView(ctx, text)
+                tv.setOnClickListener {
+                    val pos = holder.bindingAdapterPosition
+                    if (pos != RecyclerView.NO_POSITION) onLineSelected(word)
+                }
+                container.addView(tv)
+            }
         }
     }
 
@@ -142,7 +149,6 @@ class KaraokeLyricAdapter(
         setPadding(6.dpToPx(ctx), 0, 6.dpToPx(ctx), 0)
     }
 
-    // ─── Rendering ────────────────────────────────────────────────────────────
     private fun applyLineState(holder: ViewHolder, position: Int, syncTime: Long) {
         val colors    = uiViewModel.playerColors.value ?: holder.itemView.context.defaultPlayerColors()
         val fullColor = colors.onBackground or -0x1000000
@@ -156,7 +162,7 @@ class KaraokeLyricAdapter(
             val tv = wordsViews.firstOrNull() as? TextView ?: return
             val start = lineData.firstOrNull()?.startTime ?: 0L
             tv.paint.shader = null
-            if (syncTime >= start - PRE_ROLL_MS) {
+            if (syncTime >= start) {
                 tv.setTextColor(fullColor); lerpScale(tv, 1.05f)
             } else {
                 tv.setTextColor(dimColor); lerpScale(tv, 1f)
@@ -174,12 +180,8 @@ class KaraokeLyricAdapter(
 
             val w        = lineData[i]
             val duration = (w.endTime - w.startTime).coerceAtLeast(1L)
+            val rawProgress = ((syncTime - w.startTime).toFloat() / duration).coerceIn(0f, 1f)
 
-            // Pre-roll solo sulla prima parola della riga
-            val effectiveStart = if (i == 0) w.startTime - PRE_ROLL_MS else w.startTime
-            val rawProgress = ((syncTime - effectiveStart).toFloat() / duration).coerceIn(0f, 1f)
-
-            // Lerp: se il salto è > 50% (seek) bypassa per reattività immediata
             val key     = base + i
             val prev    = smoothedProgress[key] ?: rawProgress
             val delta   = rawProgress - prev
@@ -196,7 +198,6 @@ class KaraokeLyricAdapter(
                     tv.setTextColor(Color.WHITE)
                     lerpScale(tv, 1.05f)
 
-                    // Blur proporzionale alla durata (breve = netto, lunga = morbido)
                     val blurFactor = (duration.toFloat() / 800f).coerceIn(0f, 1f)
                     val blur  = 0.08f + blurFactor * 0.12f
                     val stop1 = (smoothed - blur).coerceIn(0f, 1f)
@@ -213,7 +214,6 @@ class KaraokeLyricAdapter(
             tv.invalidate()
         }
 
-        // Scroll orizzontale sulla parola attiva
         if (activeWordIndex != -1 && holder.lastActiveWordIndex != activeWordIndex) {
             holder.lastActiveWordIndex = activeWordIndex
             wordsViews.getOrNull(activeWordIndex)?.let { target ->
@@ -223,8 +223,7 @@ class KaraokeLyricAdapter(
                     holder.smoothScrollTo((center - sv.width / 2).coerceAtLeast(0))
                 }
             }
-        } else if (activeWordIndex == -1 &&
-            syncTime < ((lineData.firstOrNull()?.startTime ?: 0L) - PRE_ROLL_MS)) {
+        } else if (activeWordIndex == -1 && syncTime < (lineData.firstOrNull()?.startTime ?: 0L)) {
             if (holder.lastActiveWordIndex != -1) {
                 holder.lastActiveWordIndex = -1
                 holder.smoothScrollTo(0)
@@ -251,9 +250,6 @@ class KaraokeLyricAdapter(
         }
     }
 
-    // ─── API pubblica ─────────────────────────────────────────────────────────
-    // updateTime() e setPlaying() sono no-op: il tempo viene letto ogni frame
-    // direttamente da mediaController, indipendente dallo stato di riproduzione.
     fun updateTime(playerTime: Long) = Unit
     fun setPlaying(playing: Boolean) = Unit
 

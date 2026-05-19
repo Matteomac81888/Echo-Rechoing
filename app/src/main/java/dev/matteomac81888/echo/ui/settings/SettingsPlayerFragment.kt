@@ -1,3 +1,4 @@
+
 package dev.matteomac81888.echo.ui.settings
 
 
@@ -83,6 +84,18 @@ class SettingsPlayerFragment : BaseSettingsFragment() {
                     layoutResource = R.layout.preference
                     isIconSpaceReserved = false
                     setDefaultValue("off")
+                    addPreference(this)
+                }
+
+                MaterialListPreference(context).apply {
+                    key = "default_lyrics_mode"
+                    title = "Modalità Testo Predefinita"
+                    summary = "Scegli come visualizzare i testi (se il formato lo consente)"
+                    entries = arrayOf("Sincronizzato (Riga per riga)", "Karaoke (Parola per parola)", "Normale (Tutto il testo)")
+                    entryValues = arrayOf("SYNCED", "KARAOKE", "UNSYNCED")
+                    layoutResource = R.layout.preference
+                    isIconSpaceReserved = false
+                    setDefaultValue("SYNCED")
                     addPreference(this)
                 }
             }
