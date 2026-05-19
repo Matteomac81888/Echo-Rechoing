@@ -62,7 +62,7 @@ import java.net.URLEncoder
 enum class LyricsMode { UNSYNCED, SYNCED, KARAOKE }
 
 class LyricsViewModel(
-    private val app: App,
+    val app: App,
     extensionLoader: ExtensionLoader,
     playerState: PlayerState,
 ) : ExtensionListViewModel<Extension<*>>() {
@@ -76,6 +76,10 @@ class LyricsViewModel(
     val lyricsModeFlow = MutableStateFlow(LyricsMode.SYNCED)
 
     val richSyncFlow = MutableStateFlow<Lyrics.WordByWord?>(null)
+
+    // Cache per evitare Rate Limiting e bug su replay/seek
+    private val richSyncCache = mutableMapOf<String, Lyrics.WordByWord>()
+    private var currentRichSyncTrackId: String? = null
 
     private val httpClient = OkHttpClient.Builder()
         .addInterceptor { chain ->
@@ -195,18 +199,29 @@ class LyricsViewModel(
     /* -------------------------------------------------------------------------
      * FONTI API
      * -----------------------------------------------------------------------*/
-    private suspend fun fetchBetterLyrics(track: Track): Lyrics.WordByWord? {
+
+    // FONTE 1: Netease API (Il backend nativo di Better Lyrics per gli YRC Karaoke)
+    private suspend fun fetchNeteaseYrc(track: Track): Lyrics.WordByWord? {
         return try {
-            val artist = URLEncoder.encode(track.artists.firstOrNull()?.name ?: "", "UTF-8")
-            val title = URLEncoder.encode(track.title, "UTF-8")
-            val url = "https://api.betterlyrics.org/v1/lyrics?artist=$artist&title=$title"
-            val req = Request.Builder().url(url).build()
-            val resp = httpClient.newCall(req).await()
-            val json = resp.body?.string()?.toData<JsonElement>()?.getOrNull() ?: return null
-            parseUniversalWordByWord(json)
+            val query = URLEncoder.encode("${track.title} ${track.artists.firstOrNull()?.name ?: ""}", "UTF-8")
+            val searchUrl = "https://music.163.com/api/search/get/web?s=$query&type=1&offset=0&total=true&limit=1"
+            val searchReq = Request.Builder().url(searchUrl).build()
+            val searchResp = httpClient.newCall(searchReq).await()
+            val searchJson = searchResp.body?.string()?.toData<JsonElement>()?.getOrNull() ?: return null
+
+            val songId = searchJson.safeObj()?.get("result")?.safeObj()?.get("songs")?.jsonArray?.firstOrNull()?.safeObj()?.get("id")?.asString ?: return null
+
+            val lyricsUrl = "https://music.163.com/api/song/lyric?id=$songId&yrc=1"
+            val lyricsReq = Request.Builder().url(lyricsUrl).build()
+            val lyricsResp = httpClient.newCall(lyricsReq).await()
+            val lyricsJson = lyricsResp.body?.string()?.toData<JsonElement>()?.getOrNull() ?: return null
+
+            val yrc = lyricsJson.safeObj()?.get("yrc")?.safeObj()?.get("lyric")?.asString ?: return null
+            parseYrc(yrc)
         } catch (e: Exception) { null }
     }
 
+    // FONTE 2: YouLyPlus / Lyrics+ (KPOE API)
     private suspend fun fetchYouLyPlus(track: Track): Lyrics.WordByWord? {
         return try {
             val query = URLEncoder.encode("${track.title} ${track.artists.firstOrNull()?.name ?: ""}", "UTF-8")
@@ -227,6 +242,7 @@ class LyricsViewModel(
         } catch (e: Exception) { null }
     }
 
+    // FONTE 3: Apple Music API
     private suspend fun getAppleToken(): String? {
         if (appleToken != null) return appleToken
         return try {
@@ -346,6 +362,7 @@ class LyricsViewModel(
         }
     }
 
+    // FONTE 4: Musixmatch API
     private suspend fun getMxmToken(): String? {
         mxmToken?.let { return it }
         return try {
@@ -366,7 +383,6 @@ class LyricsViewModel(
             val artist = URLEncoder.encode(track.artists.firstOrNull()?.name ?: "", "UTF-8")
             val title = URLEncoder.encode(track.title, "UTF-8")
 
-            // Rimossa la durata dalla ricerca per ampliare notevolmente i match positivi
             val matchUrl = "https://apic-desktop.musixmatch.com/ws/1.1/matcher.track.get?app_id=web-desktop-app-v1.0&usertoken=$token&format=json&q_artist=$artist&q_track=$title"
             val matchReq = Request.Builder().url(matchUrl).header("authority", "apic-desktop.musixmatch.com").build()
 
@@ -396,8 +412,6 @@ class LyricsViewModel(
 
                 val words = mutableListOf<Lyrics.Item>()
 
-                // FIX: Musixmatch restituisce ogni singola parola nel campo 'c' separatamente.
-                // Nessuna concatenazione, ogni elemento diventa una parola netta.
                 for (i in 0 until chars.size) {
                     val charEl = chars[i].safeObj() ?: continue
                     val c = charEl["c"]?.asString ?: ""
@@ -416,7 +430,11 @@ class LyricsViewModel(
                 if (words.isNotEmpty()) lines.add(words)
             }
             if (lines.isEmpty()) null else Lyrics.WordByWord(lines, true)
-        } catch (e: Exception) { null }
+        } catch (e: Exception) {
+            // Reset token se fallisce per evitare lock
+            mxmToken = null
+            null
+        }
     }
 
     /* -------------------------------------------------------------------------
@@ -431,7 +449,7 @@ class LyricsViewModel(
             val line = lyrics.list[i]
             if (line.isEmpty()) continue
 
-            // Punteggio enorme se ci sono più parole in una riga (vero Karaoke)
+            // Premia le righe con molte parole tagliate (Vero Karaoke)
             if (line.size > 1) {
                 score += line.size * 10
             } else {
@@ -442,11 +460,9 @@ class LyricsViewModel(
                 val prevWord = line[j - 1]
                 val currWord = line[j]
 
-                // Penalità grave se una parola inizia prima della precedente nella stessa riga
                 if (currWord.startTime < prevWord.startTime) {
                     invalidTimestamps += 50
                 }
-                // Penalità se una parola ha durata negativa o esagerata (>30s)
                 if (currWord.endTime < currWord.startTime || (currWord.endTime - currWord.startTime) > 30000) {
                     invalidTimestamps += 20
                 }
@@ -457,34 +473,51 @@ class LyricsViewModel(
     }
 
     fun fetchRichSyncIfNeeded(lyrics: Lyrics.Lyric?, track: Track?) {
-        richSyncJob?.cancel()
-        richSyncFlow.value = null
+        if (track == null) return
 
-        if (lyrics is Lyrics.WordByWord) {
-            richSyncFlow.value = lyrics
+        // 1. Controllo Cache Istantaneo (Previene il bug del replay)
+        richSyncCache[track.id]?.let {
+            richSyncFlow.value = it
+            applyDefaultModeForLyrics(it)
             return
         }
 
-        if (track != null) {
-            richSyncJob = viewModelScope.launch(Dispatchers.IO) {
-                val deferreds = listOf(
-                    async { withTimeoutOrNull(6000L) { fetchBetterLyrics(track) } },
-                    async { withTimeoutOrNull(6000L) { fetchYouLyPlus(track) } },
-                    async { withTimeoutOrNull(6000L) { fetchAppleMusicLyrics(track) } },
-                    async { withTimeoutOrNull(6000L) { fetchMusixmatchLyrics(track) } }
-                )
+        // Se stiamo già cercando, non interrompere
+        if (currentRichSyncTrackId == track.id && richSyncJob?.isActive == true) {
+            return
+        }
 
-                val results = deferreds.awaitAll().filterNotNull()
-                val bestLyrics = results.maxByOrNull { scoreLyrics(it) }
+        richSyncJob?.cancel()
+        richSyncFlow.value = null
+        currentRichSyncTrackId = track.id
 
-                // Se lo score è maggiore di 0 significa che non è rotto
+        if (lyrics is Lyrics.WordByWord) {
+            richSyncFlow.value = lyrics
+            richSyncCache[track.id] = lyrics
+            applyDefaultModeForLyrics(lyrics)
+            return
+        }
+
+        richSyncJob = viewModelScope.launch(Dispatchers.IO) {
+            val deferreds = listOf(
+                async { withTimeoutOrNull(6000L) { fetchNeteaseYrc(track) } }, // Questo è il backend di Better Lyrics
+                async { withTimeoutOrNull(6000L) { fetchYouLyPlus(track) } },
+                async { withTimeoutOrNull(6000L) { fetchAppleMusicLyrics(track) } },
+                async { withTimeoutOrNull(6000L) { fetchMusixmatchLyrics(track) } }
+            )
+
+            val results = deferreds.awaitAll().filterNotNull()
+            val bestLyrics = results.maxByOrNull { scoreLyrics(it) }
+
+            withContext(Dispatchers.Main) {
                 if (bestLyrics != null && scoreLyrics(bestLyrics) > 0) {
+                    richSyncCache[track.id] = bestLyrics
                     richSyncFlow.value = bestLyrics
+                    // Se l'utente voleva il Karaoke, ora glielo attiviamo automaticamente!
+                    applyDefaultModeForLyrics(bestLyrics)
                 } else {
-                    withContext(Dispatchers.Main) {
-                        if (lyricsModeFlow.value == LyricsMode.KARAOKE) {
-                            applyDefaultModeForLyrics(lyrics)
-                        }
+                    if (lyricsModeFlow.value == LyricsMode.KARAOKE) {
+                        applyDefaultModeForLyrics(lyrics)
                     }
                 }
             }
