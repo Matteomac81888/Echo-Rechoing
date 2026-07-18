@@ -43,6 +43,7 @@ To provide the best word-by-word synchronization for Karaoke mode, this app fetc
 
 *   **Musixmatch** (Native `richsync` format)
 *   **Spicy Lyrics** - *Based on / inspired by [better-lyrics](https://github.com/better-lyrics/better-lyrics)*
+*   **[better-lyrics](https://github.com/better-lyrics/better-lyrics)** 
 *   **LyricsPlus / KPoe** - *Aggregated via community APIs and projects: [YouLyPlus (ibratabian17)](https://github.com/ibratabian17/YouLyPlus), [am-lyrics (binimum)](https://github.com/binimum/am-lyrics), and [YouLyPlus (Paxsenix0)](https://github.com/Paxsenix0/YouLyPlus)*
 *   **Apple Music** (TTML format) - *Thanks to [ancientcatz/echo-apple-music-extension](https://github.com/ancientcatz/echo-apple-music-extension/)*
 *   **LRCLIB** (Enhanced LRC format)
