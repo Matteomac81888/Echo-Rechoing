@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Layout per una singola strofa nella modalità KARAOKE.
+    Root cliccabile → FlowLayout che dispone le parole (create dinamicamente)
+    andando a capo, sempre allineate a sinistra, senza scroll orizzontale.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingVertical="8dp">
+
+    <dev.matteomac81888.echo.ui.player.more.lyrics.FlowLayout
+        android:id="@+id/wordsContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingHorizontal="24dp"
+        android:paddingVertical="4dp" />
+
+</LinearLayout>

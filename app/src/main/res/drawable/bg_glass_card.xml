@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Pannello "vetro liquido": fill traslucido + sheen superiore + bordo sottile.
+  Il radius segue ?itemCorner (impostato a 28dp nei temi Glass), esattamente
+  come fa già shape_rounded_item_corner.xml con quello standard.
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- riempimento vetro -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@color/glass_fill" />
+            <corners android:radius="?itemCorner" />
+        </shape>
+    </item>
+
+    <!-- riflesso/sheen in alto, tipico del liquid glass -->
+    <item android:top="0dp" android:left="0dp" android:right="0dp" android:bottom="0dp">
+        <shape android:shape="rectangle">
+            <gradient
+                android:type="linear"
+                android:angle="90"
+                android:startColor="@color/glass_highlight"
+                android:centerColor="#14FFFFFF"
+                android:endColor="@android:color/transparent"
+                android:centerY="0.45" />
+            <corners android:radius="?itemCorner" />
+        </shape>
+    </item>
+
+    <!-- bordo sottile che definisce il pannello -->
+    <item>
+        <shape android:shape="rectangle">
+            <stroke android:width="1dp" android:color="@color/glass_stroke" />
+            <corners android:radius="?itemCorner" />
+        </shape>
+    </item>
+</layer-list>

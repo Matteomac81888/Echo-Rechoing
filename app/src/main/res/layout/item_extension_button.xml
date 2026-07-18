@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.button.MaterialButton
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    style="@style/OutlinedButton"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    app:icon="@drawable/ic_extension_32dp"
+    app:iconSize="32dp"
+    app:iconPadding="16dp"
+    android:paddingStart="16dp"
+    android:paddingEnd="16dp"
+    android:layout_marginBottom="12dp"
+    app:iconTint="?colorControlActivated" />

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#0F2600</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="app_color">#538957</color>
+    <color name="app_color_highlight">#CDFFBF</color>
+    <color name="app_color_shadow">#67C757</color>
+    <color name="amoled_bg">@color/white</color>
+    <color name="amoled_bg_semi">#54FFFFFF</color>
+    <color name="amoled_fg">@color/black</color>
+    <color name="amoled_fg_semi">#14000000</color>
+
+    <!-- Liquid Glass -->
+    <color name="glass_fill">#33FFFFFF</color>
+    <color name="glass_fill_strong">#40FFFFFF</color>
+    <color name="glass_fill_soft">#1FFFFFFF</color>
+    <color name="glass_stroke">#4DFFFFFF</color>
+    <color name="glass_highlight">#59FFFFFF</color>
+    <color name="glass_shadow">#33000000</color>
+</resources>
