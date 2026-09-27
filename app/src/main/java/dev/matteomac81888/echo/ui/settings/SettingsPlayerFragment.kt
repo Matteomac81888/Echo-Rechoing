@@ -18,6 +18,7 @@ import dev.matteomac81888.echo.playback.PlayerService.Companion.SKIP_SILENCE
 import dev.matteomac81888.echo.playback.PlayerService.Companion.STREAM_QUALITY
 import dev.matteomac81888.echo.playback.PlayerService.Companion.UNMETERED_STREAM_QUALITY
 import dev.matteomac81888.echo.playback.PlayerService.Companion.streamQualities
+import dev.matteomac81888.echo.extensions.builtin.lyrics.aligner.KaraokeAiFallbackManager
 import dev.matteomac81888.echo.playback.listener.PlayerRadio.Companion.AUTO_START_RADIO
 import dev.matteomac81888.echo.ui.common.FragmentUtils.openFragment
 import dev.matteomac81888.echo.ui.player.PlayerViewModel.Companion.KEEP_QUEUE
@@ -96,6 +97,28 @@ class SettingsPlayerFragment : BaseSettingsFragment() {
                     layoutResource = R.layout.preference
                     isIconSpaceReserved = false
                     setDefaultValue("SYNCED")
+                    addPreference(this)
+                }
+
+                SwitchPreferenceCompat(context).apply {
+                    key = KaraokeAiFallbackManager.SETTING_ENABLED
+                    title = "Genera Karaoke con IA se non trovato"
+                    summary = "Se nessuna fonte online ha un testo Parola per parola, prova ad " +
+                        "ottenerlo analizzando in background l'audio del brano (riconoscimento " +
+                        "vocale offline). Non influisce sull'ascolto in corso."
+                    layoutResource = R.layout.preference_switch
+                    isIconSpaceReserved = false
+                    setDefaultValue(true)
+                    addPreference(this)
+                }
+
+                SwitchPreferenceCompat(context).apply {
+                    key = KaraokeAiFallbackManager.SETTING_WIFI_ONLY
+                    title = "Karaoke IA solo in Wi-Fi"
+                    summary = "Evita di scaricare l'audio necessario per l'analisi quando si usa la rete dati mobile"
+                    layoutResource = R.layout.preference_switch
+                    isIconSpaceReserved = false
+                    setDefaultValue(true)
                     addPreference(this)
                 }
             }

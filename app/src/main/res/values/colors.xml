@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="black">#0F2600</color>
+    <color name="black">#000000</color>
     <color name="white">#FFFFFFFF</color>
     <color name="app_color">#538957</color>
     <color name="app_color_highlight">#CDFFBF</color>
@@ -11,10 +11,21 @@
     <color name="amoled_fg_semi">#14000000</color>
 
     <!-- Liquid Glass -->
-    <color name="glass_fill">#33FFFFFF</color>
-    <color name="glass_fill_strong">#40FFFFFF</color>
-    <color name="glass_fill_soft">#1FFFFFFF</color>
-    <color name="glass_stroke">#4DFFFFFF</color>
-    <color name="glass_highlight">#59FFFFFF</color>
-    <color name="glass_shadow">#33000000</color>
+    <color name="glass_fill">#47FFFFFF</color>
+    <!-- Fallback più opaco: usato quando il blur reale (nativo o RenderEffect)
+         non è disponibile (vedi res/values-v31/colors.xml per la versione più
+         trasparente, usata quando il blur è garantito). Senza questo, su molti
+         dispositivi il pannello resta semi-trasparente ma senza sfocatura
+         dietro, rendendo il contenuto sovrapposto illeggibile. -->
+    <color name="glass_fill_strong">#8FFFFFFF</color>
+    <color name="glass_fill_soft">#26FFFFFF</color>
+    <color name="glass_stroke">#59FFFFFF</color>
+    <color name="glass_stroke_soft">#33FFFFFF</color>
+    <color name="glass_highlight">#73FFFFFF</color>
+    <color name="glass_highlight_soft">#26FFFFFF</color>
+    <color name="glass_shadow">#40000000</color>
+    <!-- Tocco di colore del brand mescolato nel vetro, per un look "ricco"
+         invece del solito vetro grigio/bianco piatto -->
+    <color name="glass_tint">#26538957</color>
+    <color name="glass_tint_strong">#40538957</color>
 </resources>

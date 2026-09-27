@@ -5,6 +5,7 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.core.view.isVisible
 import dev.brahmkshatriya.echo.common.models.QuickSearchItem
+import dev.matteomac81888.echo.R
 import dev.matteomac81888.echo.databinding.ItemQuickSearchMediaBinding
 import dev.matteomac81888.echo.databinding.ItemQuickSearchQueryBinding
 import dev.matteomac81888.echo.ui.feed.viewholders.MediaViewHolder.Companion.placeHolder
@@ -28,7 +29,9 @@ sealed class QuickSearchViewHolder(itemView: View) : ScrollAnimViewHolder(itemVi
 
         override fun bind(item:  QuickSearchAdapter.Item) {
             val item = item.actual as QuickSearchItem.Query
-            binding.history.visibility = if (item.searched) View.VISIBLE else View.INVISIBLE
+            binding.historyIcon.setImageResource(
+                if (item.searched) R.drawable.ic_history else R.drawable.ic_music
+            )
             binding.query.text = item.query
         }
 

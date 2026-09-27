@@ -11,15 +11,20 @@
         android:id="@+id/history"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginHorizontal="8dp"
+        android:layout_margin="8dp"
         app:cardBackgroundColor="?colorSurfaceContainer"
-        app:cardCornerRadius="24dp"
-        app:contentPadding="6dp">
+        app:cardCornerRadius="?itemCorner"
+        app:cardElevation="2dp"
+        app:strokeColor="?attr/colorOutlineVariant"
+        app:strokeWidth="1dp">
 
         <ImageView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:id="@+id/historyIcon"
+            android:layout_width="72dp"
+            android:layout_height="72dp"
+            android:padding="20dp"
             android:importantForAccessibility="no"
+            app:tint="?attr/colorOnSurfaceVariant"
             android:src="@drawable/ic_history" />
 
     </androidx.cardview.widget.CardView>

@@ -22,12 +22,17 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="f597912d-2f2c-4ca3-9949-3fc3740091db" name="Changes" comment="cooler text and better karaoke sources to find lyrics">
-      <change afterPath="$PROJECT_DIR$/.idea/artifacts/common.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/artifacts/common_jvm.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/local.properties" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/app/build.gradle.kts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main.zip" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/dev/matteomac81888/echo/MainActivity.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/dev/matteomac81888/echo/MainActivity.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/dev/matteomac81888/echo/extensions/builtin/lyrics/DefaultLyricsExtension.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/dev/matteomac81888/echo/extensions/builtin/lyrics/DefaultLyricsExtension.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/dev/matteomac81888/echo/ui/main/search/QuickSearchViewHolder.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/dev/matteomac81888/echo/ui/main/search/QuickSearchViewHolder.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/dev/matteomac81888/echo/ui/player/more/lyrics/LyricsViewModel.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/dev/matteomac81888/echo/ui/player/more/lyrics/LyricsViewModel.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/dev/matteomac81888/echo/ui/settings/SettingsPlayerFragment.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/dev/matteomac81888/echo/ui/settings/SettingsPlayerFragment.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/layout/item_player_collapsed_controls.xml" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/res/layout/item_player_collapsed_controls.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/layout/item_quick_search_query.xml" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/res/layout/item_quick_search_query.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/values/colors.xml" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/res/values/colors.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -84,12 +89,12 @@
     &quot;assignee&quot;: &quot;Matteomac81888&quot;
   }
 }</component>
-  <component name="GithubPullRequestsUISettings"><![CDATA[{
-  "selectedUrlAndAccountId": {
-    "url": "https://github.com/Matteomac81888/Echo-Rechoing",
-    "accountId": "63de44d4-bdd3-4d60-955f-9bdf746c8422"
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/Matteomac81888/Echo-Rechoing&quot;,
+    &quot;accountId&quot;: &quot;63de44d4-bdd3-4d60-955f-9bdf746c8422&quot;
   }
-}]]></component>
+}</component>
   <component name="GradleScriptDefinitionsStorage" workingDir="$PROJECT_DIR$" gradleHome="C:\Users\alexm\.gradle\wrapper\dists\gradle-9.0.0-bin\d6wjpkvcgsg3oed0qlfss3wgl\gradle-9.0.0" javaHome="C:\Program Files\Android\Android Studio\jbr" gradleVersion="9.0.0" />
   <component name="ProblemsViewState">
     <option name="selectedTabId" value="CurrentFile" />
@@ -118,7 +123,7 @@
     &quot;cf.first.check.clang-format&quot;: &quot;false&quot;,
     &quot;cidr.known.project.marker&quot;: &quot;true&quot;,
     &quot;com.google.services.firebase.aqiPopupShown&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;Merging master&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
     &quot;kotlin-language-version-configured&quot;: &quot;true&quot;
   },
   &quot;keyToStringList&quot;: {
@@ -286,17 +291,17 @@
       <map>
         <entry key="dev.matteomac81888.echo">
           <value>
-            <CheckInfo lastCheckTimestamp="1784383075750" />
+            <CheckInfo lastCheckTimestamp="1788704416040" />
           </value>
         </entry>
         <entry key="dev.matteomac81888.echo.nightly">
           <value>
-            <CheckInfo lastCheckTimestamp="1784383075755" />
+            <CheckInfo lastCheckTimestamp="1788704416039" />
           </value>
         </entry>
         <entry key="dev.matteomac81888.echo.test">
           <value>
-            <CheckInfo lastCheckTimestamp="1784383075750" />
+            <CheckInfo lastCheckTimestamp="1788704416039" />
           </value>
         </entry>
       </map>

@@ -17,6 +17,7 @@ import dev.matteomac81888.echo.extensions.ExtensionUtils.getAs
 import dev.matteomac81888.echo.extensions.ExtensionUtils.getExtension
 import dev.matteomac81888.echo.extensions.ExtensionUtils.isClient
 import dev.matteomac81888.echo.extensions.builtin.lyrics.DefaultLyricsExtension
+import dev.matteomac81888.echo.extensions.builtin.lyrics.aligner.KaraokeAiFallbackManager
 import dev.matteomac81888.echo.extensions.cache.Cached
 import dev.matteomac81888.echo.playback.MediaItemUtils.extensionId
 import dev.matteomac81888.echo.playback.MediaItemUtils.isLoaded
@@ -49,7 +50,7 @@ enum class LyricsMode { UNSYNCED, SYNCED, KARAOKE }
 
 class LyricsViewModel(
     val app: App,
-    extensionLoader: ExtensionLoader,
+    private val extensionLoader: ExtensionLoader,
     playerState: PlayerState,
 ) : ExtensionListViewModel<Extension<*>>() {
 
@@ -102,17 +103,42 @@ class LyricsViewModel(
                 searchRichSyncOnly(track)
             }.getOrNull()
 
-            if (result == null || currentRichSyncTrackId != trackId) return@launch
-
-            richSyncFlow.value = result
-
-            // Passiamo automaticamente alla modalità Karaoke solo se è quello che l'utente
-            // ha impostato come modalità predefinita, ed è ancora in modalità Sincronizzata
-            // (se nel frattempo ha scelto manualmente Unsynced o è già in Karaoke non forziamo nulla).
-            val preferredMode = app.settings.getString("default_lyrics_mode", "SYNCED")
-            if (preferredMode == "KARAOKE" && lyricsModeFlow.value == LyricsMode.SYNCED) {
-                lyricsModeFlow.value = LyricsMode.KARAOKE
+            if (result != null) {
+                applyRichSyncResult(result, trackId)
+                return@launch
             }
+
+            // NESSUNA fonte testuale (Musixmatch, LRCLib, Apple Music, ecc.) aveva un Karaoke per
+            // questo brano: come ultimissimo tentativo, e solo ora, proviamo a generarne uno
+            // analizzando direttamente l'audio del brano (riconoscimento vocale offline).
+            // Tutto ciò avviene in questo stesso coroutine IO già in background: non introduce
+            // alcun ritardo aggiuntivo percepibile e non tocca minimamente la ricerca appena
+            // conclusa. Se anche questo fallisce (rete assente, funzione disattivata nelle
+            // impostazioni, brano non analizzabile...) l'utente continua semplicemente a vedere
+            // il testo Sincronizzato/Non sincronizzato come già accadeva prima di questa modifica.
+            if (currentRichSyncTrackId != trackId) return@launch
+            val aiResult = runCatching {
+                val mediaItem = mediaFlow.value
+                val musicExtension = mediaItem?.extensionId?.let { extensionLoader.music.getExtension(it) }
+                KaraokeAiFallbackManager.generateIfNeeded(app, musicExtension, track, mediaItem)
+            }.getOrNull()
+
+            if (aiResult != null) applyRichSyncResult(aiResult, trackId)
+        }
+    }
+
+    /** Comune ai due percorsi (fonti testuali o fallback IA) che possono produrre un Karaoke. */
+    private fun applyRichSyncResult(result: Lyrics.WordByWord, trackId: String) {
+        if (currentRichSyncTrackId != trackId) return
+
+        richSyncFlow.value = result
+
+        // Passiamo automaticamente alla modalità Karaoke solo se è quello che l'utente
+        // ha impostato come modalità predefinita, ed è ancora in modalità Sincronizzata
+        // (se nel frattempo ha scelto manualmente Unsynced o è già in Karaoke non forziamo nulla).
+        val preferredMode = app.settings.getString("default_lyrics_mode", "SYNCED")
+        if (preferredMode == "KARAOKE" && lyricsModeFlow.value == LyricsMode.SYNCED) {
+            lyricsModeFlow.value = LyricsMode.KARAOKE
         }
     }
 

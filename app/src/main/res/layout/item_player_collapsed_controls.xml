@@ -6,7 +6,7 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_margin="8dp"
-    android:background="@drawable/shape_rounded_item_corner">
+    android:background="@android:color/transparent">
 
     <LinearLayout
         android:layout_width="wrap_content"

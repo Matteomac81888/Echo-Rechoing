@@ -83,6 +83,7 @@ dependencies {
     implementation(libs.nestedscrollwebview)
     implementation(libs.acsbendi.webview)
     implementation(libs.jaudiotagger)
+    implementation("com.alphacephei:vosk-android:0.3.47")
 
 
     if (!hasGoogleServices) return@dependencies

@@ -17,6 +17,7 @@ import dev.brahmkshatriya.echo.common.settings.Settings
 import dev.matteomac81888.echo.BuildConfig
 import dev.matteomac81888.echo.R
 import dev.matteomac81888.echo.utils.Serializer.toData
+import android.util.Base64
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
@@ -45,22 +46,37 @@ import java.util.logging.Logger
  *  1  Better Lyrics            Syllable
  *  2  Unison                   Syllable
  *  3  BiniLyrics                Syllable
- *  4  Better Lyrics Portato    Word
- *  5  Musixmatch               Word
- *  6  Better Lyrics            Line
- *  7  Unison                   Line
- *  8  YouTube Captions         Line
- *  9  BiniLyrics                Line
- * 10  LRCLib                   Line
- * 11  Better Lyrics Legato     Line
- * 12  Musixmatch               Line
- * 13  YouTube                  Unsynced
- * 14  Unison                   Unsynced
- * 15  LRCLib                   Unsynced
+ *  4  Apple Music (AMLL DB)    Syllable
+ *  5  Better Lyrics Portato    Word
+ *  6  Musixmatch               Word
+ *  7  Better Lyrics            Line
+ *  8  Unison                   Line
+ *  9  YouTube Captions         Line
+ * 10  BiniLyrics                Line
+ * 11  Kugou                    Line
+ * 12  LRCLib                   Line
+ * 13  Better Lyrics Legato     Line
+ * 14  Musixmatch               Line
+ * 15  YouTube                  Unsynced
+ * 16  Genius                   Unsynced
+ * 17  Unison                   Unsynced
+ * 18  LRCLib                   Unsynced
  *
  * "Portato" e "Legato" sono derivati localmente (senza chiamate di rete aggiuntive) a partire
  * dallo stesso payload TTML sillaba-per-sillaba restituito da Better Lyrics: il primo raggruppa
  * le sillabe in parole, il secondo fonde l'intera riga in un unico elemento.
+ *
+ * Nuove fonti aggiunte:
+ *  - Apple Music: tramite AMLL TTML DB (amll-dev/amll-ttml-db su GitHub), un database
+ *    comunitario di TTML sillaba-per-sillaba (lo stesso formato usato nativamente da Apple
+ *    Music) indicizzato per appleMusicId. Non richiede alcun token Apple: Apple Music non
+ *    espone infatti un'API pubblica non autenticata, quindi non è possibile interrogarla
+ *    direttamente; questo è il miglior sostituto pubblico verificabile.
+ *  - Kugou: endpoint nativo (krcs/lyrics.kugou.com), indipendente dal proxy "Better Lyrics"
+ *    già presente, usato come fonte di riserva quando quest'ultimo non trova nulla.
+ *  - Genius: ricerca pubblica (genius.com/api/search/song) + estrazione del testo dai
+ *    contenitori "data-lyrics-container" della pagina canzone. Solo testo non sincronizzato,
+ *    Genius non fornisce timestamp.
  */
 class DefaultLyricsExtension : LyricsSearchClient {
 
@@ -74,7 +90,7 @@ class DefaultLyricsExtension : LyricsSearchClient {
         val metadata = Metadata(
             className = "DefaultLyricsExtension", path = "", importType = ImportType.BuiltIn,
             type = ExtensionType.LYRICS, id = "echo-default-lyrics", name = "Testi (Auto + Karaoke)",
-            description = "Motore Supremo: Integra Better Lyrics, Unison, BiniLyrics, Musixmatch, LRCLib e YouTube (sottotitoli + descrizione) con matching rigoroso.",
+            description = "Motore Supremo: Integra Better Lyrics, Unison, BiniLyrics, Musixmatch, LRCLib, Kugou, Genius, Apple Music (AMLL DB) e YouTube (sottotitoli + descrizione) con matching rigoroso.",
             version = "v${BuildConfig.VERSION_CODE}", author = "Echo x Spicy",
             icon = R.drawable.ic_queue_music.toResourceImageHolder(), isEnabled = true
         )
@@ -88,9 +104,20 @@ class DefaultLyricsExtension : LyricsSearchClient {
 
     private val MXM_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
 
+    /**
+     * LRCLib non richiede una chiave API, ma applica un filtro anti-bot che droppa in silenzio
+     * (nessuna risposta, connessione chiusa) le richieste con uno User-Agent generico o non
+     * identificato — è esattamente lo User-Agent di default di OkHttp ("okhttp/4.x") usato in
+     * precedenza. La documentazione di LRCLib raccomanda esplicitamente di identificarsi con
+     * "NomeApp vX.Y.Z (link)". L'header "Lrclib-Client" usato prima NON è uno User-Agent: non
+     * viene letto da nessun filtro, quindi non aveva alcun effetto. Questo è il motivo per cui
+     * LRCLib falliva sempre, sia synced che unsynced che nella ricerca manuale.
+     */
+    private val LRCLIB_UA = "Echo/${BuildConfig.VERSION_CODE} (+https://github.com/brahmkshatriya/echo)"
+
     /** Rappresenta una singola opzione di testo restituita da un provider/tipo di sincronizzazione. */
     private data class LyricCandidate(val provider: String, val syncType: String, val lyric: Lyrics.Lyric)
-    private data class LrclibResult(val synced: Lyrics.Timed?, val plain: Lyrics.Simple?)
+    private data class LrclibResult(val synced: Lyrics.Timed?, val enhanced: Lyrics.WordByWord?, val plain: Lyrics.Simple?)
     private data class YoutubeWatchResult(val captions: Lyrics.Timed?, val description: Lyrics.Simple?)
 
     private suspend fun ensureMxmToken(): String? {
@@ -160,9 +187,17 @@ class DefaultLyricsExtension : LyricsSearchClient {
     }
 
     private fun getSearchableString(s: String): String {
-        return Normalizer.normalize(s, Normalizer.Form.NFD)
-            .replace(Regex("\\p{M}"), "") // Rimuove accenti
-            .replace(Regex("[^a-zA-Z0-9]"), " ") // Mantiene solo alfanumerici
+        // NOTA CRITICA: la versione precedente usava [^a-zA-Z0-9], che cancellava QUALSIASI
+        // carattere non latino (CJK, cirillico, arabo, greco, ecc.), riducendo il titolo/artista
+        // a una stringa vuota per moltissimi brani non anglofoni. Con candT/queryT vuoti,
+        // isStrictMatch() falliva sempre (return false immediato), quindi tutte le fonti che
+        // dipendono dal matching client-side (Unison, Musixmatch, la ricerca di fallback di
+        // LRCLib, Kugou, Genius, Apple Music) non restituivano mai nulla per quei brani: è la
+        // causa principale per cui "molte canzoni" risultavano senza testo. \p{L} e \p{N} sono
+        // classi Unicode che coprono lettere e numeri di QUALSIASI alfabeto, non solo latino.
+        return Normalizer.normalize(s, Normalizer.Form.NFKD)
+            .replace(Regex("\\p{M}+"), "") // Rimuove i segni diacritici (accenti latini scomposti)
+            .replace(Regex("[^\\p{L}\\p{N}]+"), " ") // Mantiene lettere/numeri di ogni alfabeto
             .lowercase()
             .replace(Regex("\\s+"), " ") // Rimuove spazi doppi
             .trim()
@@ -663,8 +698,21 @@ class DefaultLyricsExtension : LyricsSearchClient {
         return null
     }
 
+    /**
+     * Interpreta il testo sincronizzato restituito da LRCLib: prova prima il formato "enhanced"
+     * LRC (tag parola-per-parola `<mm:ss.xx>`, usato da LRCLib per il karaoke), e solo se assente
+     * ricade sul formato riga-per-riga semplice. In precedenza veniva usato solo `parseSimpleLrc`,
+     * perdendo quindi il livello karaoke anche quando LRCLib lo forniva.
+     */
+    private fun parseLrclibSynced(raw: String): Pair<Lyrics.Timed?, Lyrics.WordByWord?> {
+        val enhanced = parseEnhancedLrc(raw)
+        val line = enhanced?.let { deriveLineFromWordByWord(it) } ?: parseSimpleLrc(raw)
+        return line to enhanced
+    }
+
     private suspend fun fetchLrclibBoth(track: Track): LrclibResult {
         var syncedResult: Lyrics.Timed? = null
+        var enhancedResult: Lyrics.WordByWord? = null
         var plainResult: Lyrics.Simple? = null
         try {
             val rawTitle = track.title.clean()
@@ -675,17 +723,20 @@ class DefaultLyricsExtension : LyricsSearchClient {
             val dur = track.duration?.let { it / 1000 } ?: 0L
 
             val getUrl = buildString { append("https://lrclib.net/api/get?track_name=$title&artist_name=$artist"); if (album.isNotBlank()) append("&album_name=$album"); if (dur > 0) append("&duration=$dur") }
-            val getResp = callWithRetry(Request.Builder().url(getUrl).header("Lrclib-Client", "Echo v1.0").build())
+            val getResp = callWithRetry(Request.Builder().url(getUrl).header("User-Agent", LRCLIB_UA).build())
             if (getResp != null && getResp.isSuccessful) {
                 val json = getResp.body?.string()?.toData<JsonElement>()?.getOrNull()
                 val synced = json?.safeObj()?.get("syncedLyrics")?.asString
-                if (!synced.isNullOrBlank()) syncedResult = parseSimpleLrc(synced)
+                if (!synced.isNullOrBlank()) {
+                    val (line, enhanced) = parseLrclibSynced(synced)
+                    syncedResult = line; enhancedResult = enhanced
+                }
                 json?.safeObj()?.get("plainLyrics")?.asString?.takeIf { it.isNotBlank() }?.let { plainResult = Lyrics.Simple(it) }
             }
 
             if (syncedResult == null || plainResult == null) {
                 val searchUrl = "https://lrclib.net/api/search?track_name=$title&artist_name=$artist"
-                val searchResp = callWithRetry(Request.Builder().url(searchUrl).header("Lrclib-Client", "Echo v1.0").build())
+                val searchResp = callWithRetry(Request.Builder().url(searchUrl).header("User-Agent", LRCLIB_UA).build())
                 val results = searchResp?.body?.string()?.toData<JsonElement>()?.getOrNull()?.safeArray()
                 if (results != null) {
                     for (item in results) {
@@ -695,7 +746,10 @@ class DefaultLyricsExtension : LyricsSearchClient {
                         if (!isStrictMatch(cTitle, cArtist, rawTitle, rawArtist)) continue
 
                         if (syncedResult == null) {
-                            obj["syncedLyrics"]?.asString?.takeIf { it.isNotBlank() }?.let { syncedResult = parseSimpleLrc(it) }
+                            obj["syncedLyrics"]?.asString?.takeIf { it.isNotBlank() }?.let {
+                                val (line, enhanced) = parseLrclibSynced(it)
+                                syncedResult = line; enhancedResult = enhanced
+                            }
                         }
                         if (plainResult == null) {
                             obj["plainLyrics"]?.asString?.takeIf { it.isNotBlank() }?.let { plainResult = Lyrics.Simple(it) }
@@ -705,7 +759,214 @@ class DefaultLyricsExtension : LyricsSearchClient {
                 }
             }
         } catch (e: Exception) {}
-        return LrclibResult(syncedResult, plainResult)
+        return LrclibResult(syncedResult, enhancedResult, plainResult)
+    }
+
+    /** Estrae da un array di metadati AMLL TTML DB (formato `[["chiave", ["v1","v2"]], ...]`) i valori di una chiave. */
+    private fun findAmllMeta(metaArr: JsonArray?, key: String): List<String> {
+        if (metaArr == null) return emptyList()
+        for (entry in metaArr) {
+            val pair = entry.safeArray() ?: continue
+            if (pair.size < 2) continue
+            if (pair[0].asString == key) {
+                return pair[1].safeArray()?.mapNotNull { it.asString } ?: emptyList()
+            }
+        }
+        return emptyList()
+    }
+
+    /**
+     * Provider "Apple Music" — Apple Music non espone un'API pubblica non autenticata (richiede
+     * un token MusicKit firmato), quindi non è raggiungibile direttamente. Come sostituto
+     * verificabile usiamo AMLL TTML DB (https://github.com/amll-dev/amll-ttml-db), un database
+     * comunitario che raccoglie gli stessi file TTML sillaba-per-sillaba usati nativamente da
+     * Apple Music, indicizzati per appleMusicId in `am-lyrics/index.jsonl`. Il file indice può
+     * essere pesante: la ricerca è quindi soggetta agli stessi timeout delle altre fonti e
+     * fallisce silenziosamente (restituendo null) se troppo lenta, senza bloccare le altre.
+     */
+    private suspend fun fetchAppleMusicLyrics(track: Track): Lyrics.WordByWord? {
+        try {
+            val rawTitle = track.title.clean()
+            val rawArtist = track.artists.firstOrNull()?.name?.clean() ?: ""
+
+            val indexUrl = "https://raw.githubusercontent.com/amll-dev/amll-ttml-db/main/am-lyrics/index.jsonl"
+            val indexResp = callWithRetry(Request.Builder().url(indexUrl).build()) ?: return null
+            if (!indexResp.isSuccessful) return null
+            val body = indexResp.body?.string() ?: return null
+
+            var chosenId: String? = null
+            for (line in body.lineSequence()) {
+                if (line.isBlank()) continue
+                val obj = line.toData<JsonElement>().getOrNull()?.safeObj() ?: continue
+                val metaArr = obj["metadata"]?.safeArray()
+                val cTitle = findAmllMeta(metaArr, "musicName").firstOrNull() ?: continue
+                val cArtist = findAmllMeta(metaArr, "artists").joinToString(" ")
+                if (isStrictMatch(cTitle, cArtist, rawTitle, rawArtist)) {
+                    chosenId = obj["id"]?.asString
+                    break
+                }
+            }
+            chosenId ?: return null
+
+            val ttmlUrl = "https://raw.githubusercontent.com/amll-dev/amll-ttml-db/main/am-lyrics/$chosenId.ttml"
+            val ttmlResp = callWithRetry(Request.Builder().url(ttmlUrl).build()) ?: return null
+            if (!ttmlResp.isSuccessful) return null
+            val ttml = ttmlResp.body?.string() ?: return null
+            return parseTtml(ttml)
+        } catch (e: Exception) {}
+        return null
+    }
+
+    /**
+     * Provider "Kugou" — endpoint nativo (non tramite il proxy "Better Lyrics"), usato come fonte
+     * di riserva indipendente. Flusso standard reverse-engineered: ricerca su krcs.kugou.com,
+     * poi download del testo (in Base64) da lyrics.kugou.com.
+     */
+    private suspend fun fetchKugouLyrics(track: Track): Lyrics.Timed? {
+        try {
+            val title = track.title.clean()
+            val artist = track.artists.firstOrNull()?.name?.clean() ?: ""
+            val durationMs = track.duration ?: 0L
+            val keyword = URLEncoder.encode(if (artist.isNotBlank()) "$artist - $title" else title, "UTF-8")
+
+            val searchUrl = "https://krcs.kugou.com/search?ver=1&man=yes&client=pc&keyword=$keyword&duration=$durationMs&hash="
+            val searchResp = callWithRetry(Request.Builder().url(searchUrl).header("User-Agent", MXM_UA).build()) ?: return null
+            val searchJson = searchResp.body?.string()?.toData<JsonElement>()?.getOrNull()?.safeObj() ?: return null
+            val candidates = searchJson["candidates"]?.safeArray() ?: return null
+
+            var chosen: JsonObject? = null
+            for (c in candidates) {
+                val obj = c.safeObj() ?: continue
+                val cSong = obj["song"]?.asString ?: ""
+                val cSinger = obj["singer"]?.asString ?: ""
+                if (isStrictMatch(cSong, cSinger, title, artist)) { chosen = obj; break }
+            }
+            if (chosen == null) chosen = candidates.firstOrNull()?.safeObj()
+            val id = chosen?.get("id")?.asString ?: return null
+            val accesskey = chosen["accesskey"]?.asString ?: return null
+
+            val downloadUrl = "https://lyrics.kugou.com/download?ver=1&client=pc&id=$id&accesskey=$accesskey&fmt=lrc&charset=utf8"
+            val downloadResp = callWithRetry(Request.Builder().url(downloadUrl).header("User-Agent", MXM_UA).build()) ?: return null
+            val downloadJson = downloadResp.body?.string()?.toData<JsonElement>()?.getOrNull()?.safeObj() ?: return null
+            val contentB64 = downloadJson["content"]?.asString ?: return null
+            val lrc = String(Base64.decode(contentB64, Base64.DEFAULT), Charsets.UTF_8)
+            return parseSimpleLrc(lrc)
+        } catch (e: Exception) {}
+        return null
+    }
+
+    /** Decodifica le entità HTML più comuni presenti nelle pagine web (usato per lo scraping Genius). */
+    private fun decodeHtmlEntities(s: String): String {
+        var out = s
+            .replace("&amp;", "&")
+            .replace("&#x27;", "'").replace("&#39;", "'")
+            .replace("&quot;", "\"")
+            .replace("&#x2F;", "/").replace("&#47;", "/")
+            .replace("&nbsp;", " ")
+            .replace("&lt;", "<").replace("&gt;", ">")
+        out = Regex("&#x([0-9a-fA-F]+);").replace(out) { m ->
+            m.groupValues[1].toIntOrNull(16)?.let { runCatching { String(Character.toChars(it)) }.getOrNull() } ?: m.value
+        }
+        out = Regex("&#(\\d+);").replace(out) { m ->
+            m.groupValues[1].toIntOrNull()?.let { runCatching { String(Character.toChars(it)) }.getOrNull() } ?: m.value
+        }
+        return out
+    }
+
+    /**
+     * Estrae il contenuto testuale di tutti i blocchi `<div data-lyrics-container="true">...</div>`
+     * di una pagina Genius, gestendo correttamente eventuali `<div>` annidati (contatore di
+     * profondità) invece di un semplice regex non-greedy che si fermerebbe al primo `</div>`.
+     */
+    private fun extractLyricsDivs(html: String): List<String> {
+        val marker = "data-lyrics-container=\"true\""
+        val divOpenRegex = Regex("<div\\b", RegexOption.IGNORE_CASE)
+        val divCloseRegex = Regex("</div>", RegexOption.IGNORE_CASE)
+        val results = mutableListOf<String>()
+        var searchFrom = 0
+
+        while (true) {
+            val markerIdx = html.indexOf(marker, searchFrom)
+            if (markerIdx == -1) break
+            val tagOpenEnd = html.indexOf('>', markerIdx)
+            if (tagOpenEnd == -1) break
+
+            var depth = 1
+            var i = tagOpenEnd + 1
+            var contentEnd = -1
+            while (i < html.length) {
+                val nextOpen = divOpenRegex.find(html, i)?.range?.first ?: Int.MAX_VALUE
+                val nextClose = divCloseRegex.find(html, i)?.range?.first ?: Int.MAX_VALUE
+                if (nextOpen == Int.MAX_VALUE && nextClose == Int.MAX_VALUE) break
+                if (nextOpen < nextClose) {
+                    depth++; i = nextOpen + 4
+                } else {
+                    depth--; i = nextClose + 6
+                    if (depth == 0) { contentEnd = nextClose; break }
+                }
+            }
+            if (contentEnd != -1) results.add(html.substring(tagOpenEnd + 1, contentEnd))
+            searchFrom = markerIdx + marker.length
+        }
+        return results
+    }
+
+    /**
+     * Provider "Genius" — ricerca pubblica (genius.com/api/search/song, senza autenticazione)
+     * seguita dallo scraping dei contenitori `data-lyrics-container` della pagina canzone. Fornisce
+     * solo testo NON sincronizzato: Genius non pubblica alcun timestamp riga-per-riga o parola.
+     */
+    private suspend fun fetchGeniusLyrics(track: Track): Lyrics.Simple? {
+        try {
+            val rawTitle = track.title.clean()
+            val rawArtist = track.artists.firstOrNull()?.name?.clean() ?: ""
+            val query = URLEncoder.encode(listOf(rawTitle, rawArtist).filter { it.isNotBlank() }.joinToString(" "), "UTF-8")
+
+            val searchUrl = "https://genius.com/api/search/song?q=$query"
+            val searchReq = Request.Builder().url(searchUrl)
+                .header("User-Agent", MXM_UA)
+                .header("Accept", "application/json")
+                .build()
+            val searchResp = callWithRetry(searchReq) ?: return null
+            val searchJson = searchResp.body?.string()?.toData<JsonElement>()?.getOrNull()?.safeObj() ?: return null
+            val sections = searchJson["response"]?.safeObj()?.get("sections")?.safeArray() ?: return null
+
+            val hits = sections.flatMap { it.safeObj()?.get("hits")?.safeArray() ?: JsonArray(emptyList()) }
+                .filter { it.safeObj()?.get("type")?.asString == "song" }
+                .ifEmpty { sections.flatMap { it.safeObj()?.get("hits")?.safeArray() ?: JsonArray(emptyList()) } }
+
+            var songUrl: String? = null
+            for (hit in hits) {
+                val result = hit.safeObj()?.get("result")?.safeObj() ?: continue
+                val cTitle = result["title"]?.asString ?: ""
+                val cArtist = result["primary_artist"]?.safeObj()?.get("name")?.asString ?: ""
+                if (isStrictMatch(cTitle, cArtist, rawTitle, rawArtist)) {
+                    songUrl = result["url"]?.asString
+                    break
+                }
+            }
+            if (songUrl == null) songUrl = hits.firstOrNull()?.safeObj()?.get("result")?.safeObj()?.get("url")?.asString
+            songUrl ?: return null
+
+            val pageReq = Request.Builder().url(songUrl).header("User-Agent", MXM_UA).build()
+            val pageResp = callWithRetry(pageReq) ?: return null
+            if (!pageResp.isSuccessful) return null
+            val html = pageResp.body?.string() ?: return null
+
+            val containers = extractLyricsDivs(html)
+            if (containers.isEmpty()) return null
+
+            val text = containers.joinToString("\n") { block ->
+                decodeHtmlEntities(
+                    block.replace(Regex("(?i)<br\\s*/?>"), "\n")
+                        .replace(Regex("(?is)<script.*?</script>"), "")
+                        .replace(Regex("<[^>]+>"), "")
+                )
+            }.lines().map { it.trim() }.filter { it.isNotEmpty() }.joinToString("\n")
+
+            return text.ifBlank { null }?.let { Lyrics.Simple(it) }
+        } catch (e: Exception) {}
+        return null
     }
 
     private suspend fun fetchYoutubeWatchHtml(videoId: String): String? {
@@ -842,8 +1103,14 @@ class DefaultLyricsExtension : LyricsSearchClient {
         val betterKugouDef = async { runCatching { fetchBetterLyricsKugou(track) }.getOrNull() }
         val youtubeDef = async { runCatching { fetchYoutubeWatchLyrics(track) }.getOrNull() }
         val lrclibDef = async { runCatching { fetchLrclibBoth(track) }.getOrNull() }
+        val appleMusicDef = async { runCatching { fetchAppleMusicLyrics(track) }.getOrNull() }
+        val kugouDef = async { runCatching { fetchKugouLyrics(track) }.getOrNull() }
+        val geniusDef = async { runCatching { fetchGeniusLyrics(track) }.getOrNull() }
 
-        val allJobs = listOf(betterTtmlDef, unisonDef, biniDef, mxmWordDef, mxmLineDef, betterKugouDef, youtubeDef, lrclibDef)
+        val allJobs = listOf(
+            betterTtmlDef, unisonDef, biniDef, mxmWordDef, mxmLineDef, betterKugouDef, youtubeDef, lrclibDef,
+            appleMusicDef, kugouDef, geniusDef
+        )
         withTimeoutOrNull(timeoutMs) { allJobs.joinAll() }
         allJobs.forEach { if (it.isActive) it.cancel() }
 
@@ -855,6 +1122,9 @@ class DefaultLyricsExtension : LyricsSearchClient {
         val betterKugou = betterKugouDef.safeResult()
         val youtube = youtubeDef.safeResult()
         val lrclib = lrclibDef.safeResult()
+        val appleMusic = appleMusicDef.safeResult()
+        val kugou = kugouDef.safeResult()
+        val genius = geniusDef.safeResult()
 
         val betterSyllable = betterTtmlRaw?.let { parseTtml(it) }
         val betterPortato = betterTtmlRaw?.let { parseTtmlAsWords(it) }
@@ -868,33 +1138,41 @@ class DefaultLyricsExtension : LyricsSearchClient {
         (unison as? Lyrics.WordByWord)?.let { candidates += LyricCandidate("Unison", "Syllable", it) }
         // 3. BiniLyrics — Syllable
         bini?.let { candidates += LyricCandidate("BiniLyrics", "Syllable", it) }
-        // 4. Better Lyrics Portato — Word
+        // 4. Apple Music (AMLL DB) — Syllable
+        appleMusic?.let { candidates += LyricCandidate("Apple Music", "Syllable", it) }
+        // 5. Better Lyrics Portato — Word
         betterPortato?.let { candidates += LyricCandidate("Better Lyrics Portato", "Word", it) }
-        // 5. Musixmatch — Word
+        // 6. Musixmatch — Word
         mxmWord?.let { candidates += LyricCandidate("Musixmatch", "Word", it) }
-        // 6. Better Lyrics — Line
+        // 6b. LRCLib — Word (enhanced LRC, quando disponibile)
+        lrclib?.enhanced?.let { candidates += LyricCandidate("LRCLib", "Word", it) }
+        // 7. Better Lyrics — Line
         betterKugou?.let { candidates += LyricCandidate("Better Lyrics", "Line", it) }
-        // 7. Unison — Line
+        // 8. Unison — Line
         when (unison) {
             is Lyrics.WordByWord -> deriveLineFromWordByWord(unison)?.let { candidates += LyricCandidate("Unison", "Line", it) }
             is Lyrics.Timed -> candidates += LyricCandidate("Unison", "Line", unison)
             else -> {}
         }
-        // 8. YouTube Captions — Line
+        // 9. YouTube Captions — Line
         youtube?.captions?.let { candidates += LyricCandidate("YouTube Captions", "Line", it) }
-        // 9. BiniLyrics — Line
+        // 10. BiniLyrics — Line
         bini?.let { deriveLineFromWordByWord(it) }?.let { candidates += LyricCandidate("BiniLyrics", "Line", it) }
-        // 10. LRCLib — Line
+        // 11. Kugou — Line
+        kugou?.let { candidates += LyricCandidate("Kugou", "Line", it) }
+        // 12. LRCLib — Line
         lrclib?.synced?.let { candidates += LyricCandidate("LRCLib", "Line", it) }
-        // 11. Better Lyrics Legato — Line
+        // 13. Better Lyrics Legato — Line
         betterLegato?.let { candidates += LyricCandidate("Better Lyrics Legato", "Line", it) }
-        // 12. Musixmatch — Line
+        // 14. Musixmatch — Line
         mxmLine?.let { candidates += LyricCandidate("Musixmatch", "Line", it) }
-        // 13. YouTube — Unsynced
+        // 15. YouTube — Unsynced
         youtube?.description?.let { candidates += LyricCandidate("YouTube", "Unsynced", it) }
-        // 14. Unison — Unsynced
+        // 16. Genius — Unsynced
+        genius?.let { candidates += LyricCandidate("Genius", "Unsynced", it) }
+        // 17. Unison — Unsynced
         unison?.let { derivePlainFromLyric(it) }?.let { candidates += LyricCandidate("Unison", "Unsynced", it) }
-        // 15. LRCLib — Unsynced
+        // 18. LRCLib — Unsynced
         lrclib?.plain?.let { candidates += LyricCandidate("LRCLib", "Unsynced", it) }
 
         candidates
@@ -942,7 +1220,7 @@ class DefaultLyricsExtension : LyricsSearchClient {
         val q = URLEncoder.encode(query, "UTF-8")
         val searchUrl = "https://lrclib.net/api/search?q=$q"
         return try {
-            val resp = callWithRetry(Request.Builder().url(searchUrl).build()) ?: return PagedData.empty<Lyrics>().toFeed()
+            val resp = callWithRetry(Request.Builder().url(searchUrl).header("User-Agent", LRCLIB_UA).build()) ?: return PagedData.empty<Lyrics>().toFeed()
             val results = resp.body?.string()?.toData<JsonArray>()?.getOrNull() ?: return PagedData.empty<Lyrics>().toFeed()
             PagedData.Single {
                 results.mapNotNull { item ->

@@ -29,6 +29,7 @@ import dev.matteomac81888.echo.ui.player.PlayerFragment
 import dev.matteomac81888.echo.ui.player.PlayerFragment.Companion.PLAYER_COLOR
 import dev.matteomac81888.echo.utils.ContextUtils.getSettings
 import dev.matteomac81888.echo.utils.PermsUtils.checkAppPermissions
+import dev.matteomac81888.echo.utils.ui.GlassBlurUtils.setupLiquidGlassBackdropBlur
 import dev.matteomac81888.echo.utils.ui.UiUtils.isNightMode
 import org.koin.android.ext.android.inject
 import org.koin.androidx.viewmodel.ext.android.viewModel
@@ -58,6 +59,7 @@ open class MainActivity : AppCompatActivity() {
 
         setupNavBarAndInsets(uiViewModel, binding.root, binding.navView as NavigationBarView)
         setupPlayerBehavior(uiViewModel, binding.playerFragmentContainer)
+        setupLiquidGlassBackdropBlur(binding.navHostFragment, uiViewModel, supportFragmentManager)
         setupExceptionHandler(setupSnackBar(uiViewModel, binding.root))
         checkAppPermissions { extensionLoader.setPermGranted() }
         configureExtensionsUpdater()
